@@ -6,6 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { db, isFirebaseAvailable } from "@/lib/firebase"
 import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from "firebase/firestore"
 import { FirebaseError } from "firebase/app"
+import Link from "next/link"
 
 export default function TestFirebasePage() {
   const [testResult, setTestResult] = useState<string>("")
@@ -207,6 +208,9 @@ service cloud.firestore {
           <Button onClick={() => window.open("https://console.firebase.google.com/", "_blank")} variant="secondary" className="w-full">
             Open Firebase Console
           </Button>
+          <Link href="/test-firebase/rules" className="text-sm text-center text-primary hover:underline">
+            View Firestore Security Rules Guide
+          </Link>
           <Button onClick={() => window.history.back()} variant="outline" className="w-full">
             Back
           </Button>

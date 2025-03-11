@@ -11,12 +11,14 @@ import { Check, X, Heart } from "lucide-react"
 import Image from "next/image"
 import { Progress } from "@/components/ui/progress"
 import type { Dish } from "@/lib/mock-data"
+import { UserNameForm } from "@/components/user-name-form"
+import { MenuParticipants } from "@/components/menu-participants"
 
 // Import TinderCard component for swiping
 import TinderCard from "@/components/tinder-card"
 
 export default function SwipePage() {
-  const { activeMenu, fetchDishesToSwipe, swipeOnDish, userSwipes, joinMenu } = useApp()
+  const { activeMenu, fetchDishesToSwipe, swipeOnDish, userSwipes, joinMenu, hasSetName } = useApp()
   const [currentCategory, setCurrentCategory] = useState<string>("breakfast")
   const [currentDishes, setCurrentDishes] = useState<Dish[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -27,27 +29,6 @@ export default function SwipePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const likeAnimationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  useEffect(() => {
-    const menuId = searchParams.get('menu')
-    
-    // If there's a menu ID in the URL and no active menu, try to join it
-    if (menuId && !activeMenu && !isJoining) {
-      joinMenuFromUrl(menuId)
-    } else if (!activeMenu) {
-      router.push("/")
-      return
-    }
-
-    loadDishes()
-    
-    // Cleanup animation timeout on unmount
-    return () => {
-      if (likeAnimationTimeoutRef.current) {
-        clearTimeout(likeAnimationTimeoutRef.current)
-      }
-    }
-  }, [activeMenu, currentCategory, searchParams])
 
   const joinMenuFromUrl = async (menuId: string) => {
     setIsJoining(true)
@@ -100,6 +81,29 @@ export default function SwipePage() {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!hasSetName) return;
+    
+    const menuId = searchParams.get('menu')
+    
+    // If there's a menu ID in the URL and no active menu, try to join it
+    if (menuId && !activeMenu && !isJoining) {
+      joinMenuFromUrl(menuId)
+    } else if (!activeMenu) {
+      router.push("/")
+      return
+    }
+
+    loadDishes()
+    
+    // Cleanup animation timeout on unmount
+    return () => {
+      if (likeAnimationTimeoutRef.current) {
+        clearTimeout(likeAnimationTimeoutRef.current)
+      }
+    }
+  }, [activeMenu, currentCategory, searchParams, hasSetName])
 
   const handleSwipe = async (dish: Dish, direction: string) => {
     const isLiked = direction === "right"
@@ -163,6 +167,15 @@ export default function SwipePage() {
     router.push("/menu")
   }
 
+  // Show name form if user hasn't set a name yet
+  if (!hasSetName) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <UserNameForm onComplete={() => {}} />
+      </div>
+    )
+  }
+
   return (
     <div className="container flex flex-col items-center min-h-screen py-6 px-4">
       <div className="w-full max-w-md mx-auto">
@@ -179,6 +192,13 @@ export default function SwipePage() {
             </div>
             <Progress value={calculateProgress()} className="h-2" />
           </div>
+          
+          {/* Menu Participants */}
+          {activeMenu && (
+            <div className="mt-4">
+              <MenuParticipants menuId={activeMenu.menu_id} />
+            </div>
+          )}
         </div>
 
         <Tabs defaultValue="breakfast" value={currentCategory} onValueChange={setCurrentCategory} className="w-full">

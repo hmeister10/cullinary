@@ -1,5 +1,6 @@
 // Local storage keys
 const USER_ID_KEY = 'cullinary_user_id';
+const USER_NAME_KEY = 'cullinary_user_name';
 const MENUS_KEY = 'cullinary_menus';
 
 // Types
@@ -33,6 +34,23 @@ export const getUserId = (): string | null => {
 export const saveUserId = (userId: string): void => {
   if (!isLocalStorageAvailable()) return;
   localStorage.setItem(USER_ID_KEY, userId);
+};
+
+// Get user name from localStorage
+export const getUserName = (): string | null => {
+  if (!isLocalStorageAvailable()) return null;
+  return localStorage.getItem(USER_NAME_KEY);
+};
+
+// Save user name to localStorage
+export const saveUserName = (userName: string): void => {
+  if (!isLocalStorageAvailable()) return;
+  localStorage.setItem(USER_NAME_KEY, userName);
+};
+
+// Check if user has set their name
+export const hasUserName = (): boolean => {
+  return !!getUserName();
 };
 
 // Get menus from localStorage

@@ -4,30 +4,36 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useToast } from "@/hooks/use-toast"
 import { mockDB, type Dish, type Menu } from "@/lib/mock-data"
 import { firestoreService } from "@/lib/firestore-service"
-import { getUserId, saveUserId, saveMenuToStorage } from "@/lib/local-storage"
+import { getUserId, saveUserId, saveMenuToStorage, getUserName, saveUserName, hasUserName } from "@/lib/local-storage"
+import { isFirebasePermissionError } from "@/lib/firebase"
 
 interface UserSwipes {
   [dishId: string]: boolean // true for right swipe, false for left swipe
 }
 
 interface AppContextType {
-  user: { uid: string } | null
+  user: { uid: string; name?: string } | null
   loading: boolean
   activeMenu: Menu | null
   userSwipes: UserSwipes
+  hasSetName: boolean
   createMenu: (startDate: Date, endDate: Date) => Promise<string>
   joinMenu: (menuId: string) => Promise<boolean>
   swipeOnDish: (dish: Dish, isLiked: boolean) => Promise<boolean>
   fetchDishesToSwipe: (category: string) => Promise<Dish[]>
+  setUserName: (name: string) => void
+  getMenuParticipants: (menuId: string) => Promise<string[]>
+  deleteMenu: (menuId: string) => Promise<boolean>
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ uid: string } | null>(null)
+  const [user, setUser] = useState<{ uid: string; name?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeMenu, setActiveMenu] = useState<Menu | null>(null)
   const [userSwipes, setUserSwipes] = useState<UserSwipes>({})
+  const [hasSetName, setHasSetName] = useState(false)
   const { toast } = useToast()
 
   // Create a mock user on component mount or retrieve from localStorage
@@ -36,6 +42,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         // Check if user exists in localStorage
         let userId = getUserId();
+        let userName = getUserName();
         
         if (!userId) {
           // Generate a random user ID
@@ -43,7 +50,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           saveUserId(userId);
         }
         
-        setUser({ uid: userId })
+        setUser({ uid: userId, name: userName || undefined })
+        setHasSetName(!!userName)
 
         // Create user in mock DB
         await mockDB.createUser(userId)
@@ -62,41 +70,108 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createOrGetUser()
   }, [toast])
 
+  // Set user name
+  const setUserName = (name: string) => {
+    if (!user) return;
+    
+    saveUserName(name);
+    setUser({ ...user, name });
+    setHasSetName(true);
+    
+    // Also update in Firestore if available
+    try {
+      firestoreService.updateUserName(user.uid, name).catch(error => {
+        console.error("Error updating user name in Firestore:", error);
+      });
+    } catch (error) {
+      console.error("Error updating user name:", error);
+    }
+  };
+
+  // Get menu participants
+  const getMenuParticipants = async (menuId: string): Promise<string[]> => {
+    try {
+      // Try to get from Firestore first
+      try {
+        const participants = await firestoreService.getMenuParticipants(menuId);
+        return participants;
+      } catch (error) {
+        console.error("Error getting menu participants from Firestore:", error);
+      }
+      
+      // Fallback to mock DB
+      if (activeMenu) {
+        return activeMenu.participants;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error("Error getting menu participants:", error);
+      return [];
+    }
+  };
+
   // Create a new menu
   const createMenu = async (startDate: Date, endDate: Date): Promise<string> => {
     if (!user) throw new Error("User not authenticated")
 
     try {
-      // Create menu in mock DB
-      const newMenu = await mockDB.createMenu(startDate.toISOString(), endDate.toISOString(), user.uid)
+      console.log(`App Provider: Creating new menu`);
       
-      // Also create in Firestore if available
+      // Create menu in Firestore
+      let menuId;
       try {
-        await firestoreService.createMenu(startDate.toISOString(), endDate.toISOString(), user.uid)
+        menuId = await firestoreService.createMenu(startDate.toISOString(), endDate.toISOString(), user.uid, user.name);
+        console.log(`App Provider: Menu created in Firestore with ID: ${menuId}`);
       } catch (error) {
-        console.error("Error creating menu in Firestore:", error)
-        // Continue with mock DB only
+        console.error("Error creating menu in Firestore:", error);
+        // If it's a permissions error, throw it so the UI can handle it
+        if (isFirebasePermissionError(error)) {
+          throw error;
+        }
+        // Otherwise, we can't continue without Firestore
+        throw new Error("Failed to create menu in Firestore");
+      }
+
+      // Get the menu data
+      const firestoreMenu = await firestoreService.getMenu(menuId);
+      
+      if (!firestoreMenu) {
+        console.log(`App Provider: Could not retrieve menu ${menuId} after creation`);
+        toast({
+          variant: "default",
+          title: "Warning",
+          description: "Created menu but could not retrieve menu data. Please refresh.",
+        });
+      } else {
+        // Set as active menu
+        setActiveMenu(firestoreMenu);
       }
 
       // Save to localStorage
       saveMenuToStorage({
-        menu_id: newMenu.menu_id,
+        menu_id: menuId,
         name: `Menu ${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}`,
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
         created_at: Date.now()
       });
-
-      setActiveMenu(newMenu)
-      return newMenu.menu_id
+      
+      return menuId;
     } catch (error) {
-      console.error("Error creating menu:", error)
+      console.error("Error creating menu:", error);
+      
+      // If it's a Firebase permissions error, rethrow it
+      if (isFirebasePermissionError(error)) {
+        throw error;
+      }
+      
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to create menu. Please try again.",
-      })
-      throw error
+      });
+      throw error;
     }
   }
 
@@ -105,40 +180,75 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error("User not authenticated")
 
     try {
-      // Try to join in Firestore first
-      let firestoreSuccess = false;
-      try {
-        firestoreSuccess = await firestoreService.joinMenu(menuId, user.uid);
-      } catch (error) {
-        console.error("Error joining menu in Firestore:", error)
-        // Continue with mock DB
-      }
-
-      // Join in mock DB
-      const menu = await mockDB.joinMenu(menuId, user.uid)
-
-      if (!menu) {
+      console.log(`App Provider: Attempting to join menu with ID: ${menuId}`);
+      
+      // Normalize menu ID to uppercase
+      const normalizedMenuId = menuId.toUpperCase();
+      console.log(`App Provider: Normalized menu ID: ${normalizedMenuId}`);
+      
+      // Check if the menu exists in Firestore
+      const menuExists = await firestoreService.menuExists(normalizedMenuId);
+      
+      if (!menuExists) {
+        console.log(`App Provider: Menu ${normalizedMenuId} not found in Firestore`);
         toast({
           variant: "destructive",
           title: "Error",
           description: "Menu not found. Please check the menu ID.",
-        })
-        return false
+        });
+        return false;
       }
-
+      
+      console.log(`App Provider: Menu ${normalizedMenuId} exists in Firestore, attempting to join`);
+      
+      // Menu exists in Firestore, try to join it
+      const firestoreSuccess = await firestoreService.joinMenu(normalizedMenuId, user.uid, user.name);
+      
+      if (!firestoreSuccess) {
+        console.log(`App Provider: Failed to join menu ${normalizedMenuId} in Firestore`);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to join menu. Please try again.",
+        });
+        return false;
+      }
+      
+      console.log(`App Provider: Successfully joined Firestore menu: ${normalizedMenuId}`);
+      
+      // Get the menu data
+      const firestoreMenu = await firestoreService.getMenu(normalizedMenuId);
+      
+      if (!firestoreMenu) {
+        console.log(`App Provider: Could not retrieve menu ${normalizedMenuId} after joining`);
+        toast({
+          variant: "destructive",
+          title: "Warning",
+          description: "Joined menu but could not retrieve menu data. Please refresh.",
+        });
+        return true; // Still return true since the join was successful
+      }
+      
       // Save to localStorage
       saveMenuToStorage({
-        menu_id: menu.menu_id,
-        name: `Menu ${new Date(menu.start_date).toLocaleDateString()} - ${new Date(menu.end_date).toLocaleDateString()}`,
-        start_date: menu.start_date,
-        end_date: menu.end_date,
+        menu_id: normalizedMenuId,
+        name: `Menu ${new Date(firestoreMenu.start_date).toLocaleDateString()} - ${new Date(firestoreMenu.end_date).toLocaleDateString()}`,
+        start_date: firestoreMenu.start_date,
+        end_date: firestoreMenu.end_date,
         created_at: Date.now()
       });
-
-      setActiveMenu(menu)
-      return true
+      
+      // Set as active menu
+      setActiveMenu(firestoreMenu);
+      return true;
     } catch (error) {
       console.error("Error joining menu:", error)
+      
+      // If it's a Firebase permissions error, rethrow it
+      if (isFirebasePermissionError(error)) {
+        throw error;
+      }
+      
       toast({
         variant: "destructive",
         title: "Error",
@@ -161,7 +271,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await firestoreService.recordSwipe(user.uid, dish.dish_id, activeMenu.menu_id, isLiked);
       } catch (error) {
         console.error("Error recording swipe in Firestore:", error)
-        // Continue with mock DB only
+        // If it's a permissions error, log it but don't throw
+        // We can continue with mock DB
+        if (!isFirebasePermissionError(error)) {
+          console.warn("Non-permission Firestore error:", error);
+        }
       }
 
       // Update local state
@@ -177,7 +291,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           await firestoreService.checkForMatch(activeMenu.menu_id, dish.dish_id);
         } catch (error) {
           console.error("Error checking for match in Firestore:", error)
-          // Continue with mock DB only
+          // If it's a permissions error, log it but don't throw
+          if (!isFirebasePermissionError(error)) {
+            console.warn("Non-permission Firestore error:", error);
+          }
         }
 
         if (isMatch) {
@@ -219,6 +336,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Delete a menu from user's list
+  const deleteMenu = async (menuId: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      // Try to remove from Firestore first
+      try {
+        await firestoreService.removeMenuFromUser(user.uid, menuId);
+      } catch (error) {
+        console.error("Error removing menu from user in Firestore:", error);
+        // If it's a permissions error, log it but don't throw
+        if (!isFirebasePermissionError(error)) {
+          console.warn("Non-permission Firestore error:", error);
+        }
+      }
+      
+      // If this is the active menu, clear it
+      if (activeMenu && activeMenu.menu_id === menuId) {
+        setActiveMenu(null);
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting menu:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete menu. Please try again.",
+      });
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -226,10 +376,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loading,
         activeMenu,
         userSwipes,
+        hasSetName,
         createMenu,
         joinMenu,
         swipeOnDish,
         fetchDishesToSwipe,
+        setUserName,
+        getMenuParticipants,
+        deleteMenu
       }}
     >
       {children}

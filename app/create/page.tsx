@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
@@ -11,26 +11,36 @@ import { CalendarIcon, Copy, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useApp } from "@/providers/app-provider"
 import { useRouter } from "next/navigation"
+import { UserNameForm } from "@/components/user-name-form"
 
 export default function CreateMenuPage() {
   const [startDate, setStartDate] = useState<Date>(new Date())
   const [menuId, setMenuId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
-  const { createMenu } = useApp()
+  const { createMenu, hasSetName } = useApp()
   const { toast } = useToast()
   const router = useRouter()
+  const createRequestInProgress = useRef(false)
 
   const handleCreateMenu = async () => {
+    // Prevent multiple simultaneous requests
+    if (createRequestInProgress.current) return;
+    
     try {
+      createRequestInProgress.current = true;
       setIsCreating(true)
       const endDate = addDays(startDate, 6) // 7 day menu
       const id = await createMenu(startDate, endDate)
-      setMenuId(id)
-      toast({
-        title: "Menu Created!",
-        description: "Share the menu ID with your partner to start.",
-      })
+      
+      // Only update state if we got a valid ID back
+      if (id) {
+        setMenuId(id)
+        toast({
+          title: "Menu Created!",
+          description: "Share the menu ID with your partner to start.",
+        })
+      }
     } catch (error) {
       console.error("Error creating menu:", error)
       toast({
@@ -40,6 +50,7 @@ export default function CreateMenuPage() {
       })
     } finally {
       setIsCreating(false)
+      createRequestInProgress.current = false;
     }
   }
 
@@ -69,6 +80,15 @@ export default function CreateMenuPage() {
     } else {
       router.push("/swipe")
     }
+  }
+
+  // Show name form if user hasn't set a name yet
+  if (!hasSetName) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <UserNameForm onComplete={() => {}} />
+      </div>
+    )
   }
 
   return (
