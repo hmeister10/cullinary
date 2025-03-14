@@ -26,11 +26,19 @@ let firebaseError: Error | null = null;
 
 try {
   if (getApps().length === 0) {
+    console.log('Initializing Firebase with config:', {
+      projectId: firebaseConfig.projectId,
+      authDomain: firebaseConfig.authDomain
+    });
     app = initializeApp(firebaseConfig);
   } else {
     app = getApps()[0];
+    console.log('Using existing Firebase app with project:', app.options.projectId);
   }
   firestoreDb = getFirestore(app);
+  
+  // Test Firestore connection
+  console.log('Testing Firestore connection...');
   
   // Uncomment this to use the Firestore emulator for local development
   // if (process.env.NODE_ENV === 'development') {

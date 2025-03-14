@@ -43,6 +43,14 @@ export default function TestFirebasePage() {
     }
     
     try {
+      // Log the actual Firebase config values (except sensitive ones)
+      console.log("Using Firebase config:", {
+        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+        // Don't log API keys or other sensitive values
+      });
+      
       // Create a test document
       const testId = `test_${Date.now()}`
       const testData = {
@@ -51,8 +59,12 @@ export default function TestFirebasePage() {
         timestamp: serverTimestamp()
       }
       
+      console.log(`Attempting to write document with ID: ${testId}`);
+      
       // Write to Firestore
       await setDoc(doc(db, "test_collection", testId), testData)
+      
+      console.log(`Document written successfully, now reading it back`);
       
       // Read back from Firestore
       const docRef = doc(db, "test_collection", testId)
@@ -66,8 +78,16 @@ export default function TestFirebasePage() {
     } catch (err) {
       console.error("Error testing Firestore:", err)
       
-      // Handle Firebase-specific errors
+      // Log more detailed error information
       if (err instanceof FirebaseError) {
+        console.error("Firebase Error Details:", {
+          code: err.code,
+          message: err.message,
+          customData: err.customData,
+          stack: err.stack
+        });
+        
+        // Handle Firebase-specific errors
         if (err.code === 'permission-denied') {
           setError(`Permission Denied: Your Firestore database is in production mode and requires security rules.
           
@@ -94,6 +114,13 @@ service cloud.firestore {
 
   // Check Firebase configuration
   const checkFirebaseConfig = () => {
+    // Log the actual values for debugging
+    console.log("Actual Firebase Config Values:", {
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      // Don't log sensitive values
+    });
+    
     setFirebaseConfig({
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? "✅ Set" : "❌ Missing",
       authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ? "✅ Set" : "❌ Missing",
@@ -158,6 +185,31 @@ service cloud.firestore {
     }
   }
 
+  // Add this function to your component
+  const testCORS = async () => {
+    setIsLoading(true);
+    setError(null);
+    setTestResult("");
+    
+    try {
+      // Create a direct fetch to the Firestore API
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/test_collection`;
+      
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        setTestResult(`CORS check successful: ${response.status}`);
+      } else {
+        setError(`CORS check failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (err) {
+      setError(`CORS Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
       <Card className="w-full max-w-md">
@@ -197,6 +249,10 @@ service cloud.firestore {
             
             <Button onClick={listTestDocuments} disabled={isLoading || !isAvailable} variant="secondary">
               List Test Documents
+            </Button>
+            
+            <Button onClick={testCORS} disabled={isLoading || !isAvailable} variant="outline">
+              Test CORS
             </Button>
             
             {error && (
