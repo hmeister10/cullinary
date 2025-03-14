@@ -86,33 +86,43 @@ const SwipePageContent = () => {
   }, [joinMenu, toast, router, isJoining])
 
   const loadDishes = useCallback(async () => {
-    if (isLoading) return; // Prevent concurrent loading
+    console.log("loadDishes called, isLoading:", isLoading);
     
-    setIsLoading(true)
+    // Force loading state to true
+    setIsLoading(true);
+    
     try {
       console.log("Loading dishes for category:", currentCategory);
-      const dishes = await fetchDishesToSwipe(currentCategory)
+      console.log("Active menu:", activeMenu ? activeMenu.menu_id : 'none');
+      
+      // Ensure we have a user before trying to fetch dishes
+      if (!activeMenu) {
+        console.error("No active menu, cannot load dishes");
+        setCurrentDishes([]);
+        return;
+      }
+      
+      const dishes = await fetchDishesToSwipe(currentCategory);
       console.log("Dishes loaded:", dishes.length);
       
-      setCurrentDishes(prev => {
-        // Only update if we have new dishes or no dishes
-        if (dishes.length > 0 || prev.length === 0) {
-          return dishes;
-        }
-        return prev;
-      })
+      if (dishes.length > 0) {
+        console.log("Updating dishes state with new dishes");
+        setCurrentDishes(dishes);
+      } else {
+        console.log("No dishes returned, keeping current dishes");
+      }
     } catch (error) {
-      console.error("Error loading dishes:", error)
+      console.error("Error loading dishes:", error);
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to load dishes. Please try again.",
-      })
+      });
     } finally {
-      setIsLoading(false)
-      setShouldLoadDishes(false)
+      setIsLoading(false);
+      setShouldLoadDishes(false);
     }
-  }, [fetchDishesToSwipe, currentCategory, toast, isLoading])
+  }, [fetchDishesToSwipe, currentCategory, toast, activeMenu]);
 
   // Fix the initial loading state issue
   useEffect(() => {
@@ -137,6 +147,18 @@ const SwipePageContent = () => {
     setShouldLoadDishes(true);
     hasInitializedRef.current = true;
   }, [hasSetName, menuId, activeMenu, isJoining, joinMenuFromUrl, router]);
+
+  // Force load dishes after component mounts and menu is ready
+  useEffect(() => {
+    if (activeMenu && hasSetName) {
+      // Force isLoading to false to ensure loadDishes can run
+      setIsLoading(false);
+      // Small timeout to ensure state is updated
+      setTimeout(() => {
+        loadDishes();
+      }, 100);
+    }
+  }, [activeMenu, hasSetName]);
 
   // Handle dish loading - ensure this runs when shouldLoadDishes changes
   useEffect(() => {

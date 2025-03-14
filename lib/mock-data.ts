@@ -733,17 +733,24 @@ class MockDatabase {
 
   // Create a new user
   async createUser(userId: string): Promise<UserData> {
+    console.log(`MockDB: Creating new user with ID: ${userId}`);
+    
     const userData: UserData = {
       user_id: userId,
       swipes: {},
     }
     this.users[userId] = userData
+    
+    console.log(`MockDB: User created successfully. Total users: ${Object.keys(this.users).length}`);
     return userData
   }
 
   // Get user data
   async getUser(userId: string): Promise<UserData | null> {
-    return this.users[userId] || null
+    console.log(`MockDB: Getting user with ID: ${userId}`);
+    const user = this.users[userId] || null;
+    console.log(`MockDB: User found: ${user !== null}`);
+    return user;
   }
 
   // Create a new menu
@@ -859,33 +866,24 @@ class MockDatabase {
 
   // Get dishes by category
   async getDishes(category: string, userId: string): Promise<Dish[]> {
-    const user = this.users[userId]
-    if (!user) return []
-
-    // Filter dishes by category and not already swiped
-    let availableDishes = this.dishes.filter(
-      (dish) =>
-        dish.category.toLowerCase() === category.toLowerCase() &&
-        !Object.prototype.hasOwnProperty.call(user.swipes, dish.dish_id),
-    )
-
-    // If no dishes are available, recycle dishes that were previously swiped
-    if (availableDishes.length === 0) {
-      // Reset swipes for this category
-      const categoryDishes = this.dishes.filter(
-        (dish) => dish.category.toLowerCase() === category.toLowerCase()
-      )
-      
-      // Clear swipes for this category to recycle dishes
-      categoryDishes.forEach(dish => {
-        delete user.swipes[dish.dish_id]
-      })
-      
-      // Return all dishes for this category
-      availableDishes = categoryDishes
+    // Make sure we have dishes initialized
+    if (this.dishes.length === 0) {
+      this.initializeDishes();
     }
-
-    return availableDishes
+    
+    // Get user or create if not exists
+    let user = this.users[userId];
+    if (!user) {
+      user = await this.createUser(userId);
+    }
+    
+    // Filter dishes by category
+    const categoryDishes = this.dishes.filter(
+      (dish) => dish.category.toLowerCase() === category.toLowerCase()
+    );
+    
+    // Return all dishes for this category
+    return categoryDishes;
   }
 
   // Update an existing menu

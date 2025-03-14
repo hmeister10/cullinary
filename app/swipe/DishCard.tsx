@@ -15,10 +15,11 @@ const DishCard = memo(({ dish }: DishCardProps) => {
     <Card className="w-full h-full overflow-hidden">
       <div className="relative h-3/4">
         <Image
-          src={dish.image_url || "/placeholder.svg?height=300&width=300"}
+          src={dish.image_url || "/assets/food-placeholder.svg"}
           alt={dish.name}
           fill
           className="object-cover"
+          unoptimized={true}
         />
         <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs">
           {dish.preference}

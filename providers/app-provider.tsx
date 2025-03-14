@@ -41,21 +41,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const createOrGetUser = async () => {
       try {
+        console.log("AppProvider: Creating or getting user");
         // Check if user exists in localStorage
         let userId = getUserId();
         let userName = getUserName();
+        
+        console.log("AppProvider: Retrieved from localStorage - userId:", userId ? "exists" : "not found", "userName:", userName ? "exists" : "not found");
         
         if (!userId) {
           // Generate a random user ID
           userId = `user_${Math.random().toString(36).substring(2, 9)}`
           saveUserId(userId);
+          console.log("AppProvider: Generated new userId:", userId);
         }
         
         setUser({ uid: userId, name: userName || undefined })
         setHasSetName(!!userName)
+        console.log("AppProvider: Set user state with userId:", userId, "hasSetName:", !!userName);
 
         // Create user in mock DB
-        await mockDB.createUser(userId)
+        console.log("AppProvider: Creating user in mockDB with userId:", userId);
+        const userData = await mockDB.createUser(userId);
+        console.log("AppProvider: User created in mockDB:", userData ? "success" : "failed");
       } catch (error) {
         console.error("Error creating mock user:", error)
         toast({
@@ -65,6 +72,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         })
       } finally {
         setLoading(false)
+        console.log("AppProvider: Finished user initialization, loading set to false");
       }
     }
 
@@ -322,18 +330,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Fetch dishes to swipe based on category
   const fetchDishesToSwipe = async (category: string): Promise<Dish[]> => {
-    if (!user) return []
+    if (!user) {
+      console.error("Cannot fetch dishes: No user is logged in");
+      return [];
+    }
 
     try {
-      return await mockDB.getDishes(category, user.uid)
+      // Make sure the user exists in the mock database
+      const existingUser = await mockDB.getUser(user.uid);
+      if (!existingUser) {
+        console.log("User not found in mockDB, creating user");
+        await mockDB.createUser(user.uid);
+      }
+      
+      // Get dishes for this category
+      const dishes = await mockDB.getDishes(category, user.uid);
+      return dishes;
     } catch (error) {
-      console.error("Error fetching dishes:", error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load dishes. Please try again.",
-      })
-      return []
+      console.error("Error fetching dishes:", error);
+      return [];
     }
   }
 

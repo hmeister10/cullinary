@@ -31,25 +31,43 @@ const isLocalStorageAvailable = () => {
 
 // Get user ID from localStorage
 export const getUserId = (): string | null => {
-  if (!isLocalStorageAvailable()) return null;
-  return localStorage.getItem(USER_ID_KEY);
+  if (!isLocalStorageAvailable()) {
+    console.log('LocalStorage: getUserId - localStorage not available');
+    return null;
+  }
+  const userId = localStorage.getItem(USER_ID_KEY);
+  console.log(`LocalStorage: getUserId - retrieved userId: ${userId ? userId : 'null'}`);
+  return userId;
 };
 
 // Save user ID to localStorage
 export const saveUserId = (userId: string): void => {
-  if (!isLocalStorageAvailable()) return;
+  if (!isLocalStorageAvailable()) {
+    console.log('LocalStorage: saveUserId - localStorage not available');
+    return;
+  }
+  console.log(`LocalStorage: saveUserId - saving userId: ${userId}`);
   localStorage.setItem(USER_ID_KEY, userId);
 };
 
 // Get user name from localStorage
 export const getUserName = (): string | null => {
-  if (!isLocalStorageAvailable()) return null;
-  return localStorage.getItem(USER_NAME_KEY);
+  if (!isLocalStorageAvailable()) {
+    console.log('LocalStorage: getUserName - localStorage not available');
+    return null;
+  }
+  const userName = localStorage.getItem(USER_NAME_KEY);
+  console.log(`LocalStorage: getUserName - retrieved userName: ${userName ? userName : 'null'}`);
+  return userName;
 };
 
 // Save user name to localStorage
 export const saveUserName = (userName: string): void => {
-  if (!isLocalStorageAvailable()) return;
+  if (!isLocalStorageAvailable()) {
+    console.log('LocalStorage: saveUserName - localStorage not available');
+    return;
+  }
+  console.log(`LocalStorage: saveUserName - saving userName: ${userName}`);
   localStorage.setItem(USER_NAME_KEY, userName);
 };
 
