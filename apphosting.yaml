@@ -1,0 +1,58 @@
+# Firebase App Hosting Configuration
+# Rename this file to 'apphosting.yaml' and update with your actual values
+
+# Environment variables configuration
+env:
+  # Firebase configuration
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "${NEXT_PUBLIC_FIREBASE_API_KEY}"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "${NEXT_PUBLIC_FIREBASE_PROJECT_ID}"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "${NEXT_PUBLIC_FIREBASE_APP_ID}"
+    availability:
+      - BUILD
+      - RUNTIME
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    secret: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+
+# Optional: Configure build settings
+build:
+  # Specify the command to build your application
+  command: npm run build
+
+# Optional: Configure runtime settings
+runtime:
+  # Specify the Node.js version
+  nodejs: 18
+
+# Optional: Configure region settings
+regions:
+  # Specify the regions where your app should be deployed
+  - us-central1
