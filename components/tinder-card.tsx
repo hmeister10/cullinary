@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 
 interface TinderCardProps {
   children: React.ReactNode
@@ -30,7 +30,7 @@ export default function TinderCard({ children, onSwipe, preventSwipe = [], class
     }
   }
 
-  const handleTouchMove = (e: TouchEvent | MouseEvent) => {
+  const handleTouchMove = useCallback((e: TouchEvent | MouseEvent) => {
     if (!isDragging) return
 
     let clientX, clientY
@@ -57,9 +57,9 @@ export default function TinderCard({ children, onSwipe, preventSwipe = [], class
 
     setOffsetX(newOffsetX)
     setOffsetY(newOffsetY)
-  }
+  }, [isDragging, startX, startY, preventSwipe])
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = useCallback(() => {
     if (!isDragging) return
 
     const threshold = 100
@@ -79,7 +79,7 @@ export default function TinderCard({ children, onSwipe, preventSwipe = [], class
     }
 
     setIsDragging(false)
-  }
+  }, [isDragging, offsetX, offsetY, onSwipe])
 
   useEffect(() => {
     const touchMoveHandler = (e: TouchEvent | MouseEvent) => handleTouchMove(e)
@@ -98,7 +98,7 @@ export default function TinderCard({ children, onSwipe, preventSwipe = [], class
       window.removeEventListener("touchend", touchEndHandler)
       window.removeEventListener("mouseup", touchEndHandler)
     }
-  }, [isDragging, offsetX, offsetY])
+  }, [isDragging, handleTouchMove, handleTouchEnd])
 
   const style: React.CSSProperties = {
     transform: `translate(${offsetX}px, ${offsetY}px) rotate(${offsetX * 0.1}deg)`,

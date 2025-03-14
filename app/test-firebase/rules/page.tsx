@@ -14,16 +14,16 @@ export default function FirestoreRulesPage() {
         <CardContent className="prose dark:prose-invert max-w-none">
           <h2>Current Issue</h2>
           <p>
-            You're seeing a "Missing or insufficient permissions" error because your Firestore database is in production mode, 
-            which by default blocks all read and write operations unless you've configured specific security rules.
+            You&apos;re seeing a &quot;Missing or insufficient permissions&quot; error because your Firestore database is in production mode, 
+            which by default blocks all read and write operations unless you&apos;ve configured specific security rules.
           </p>
 
           <h2>How to Fix</h2>
           <ol>
             <li>Go to the <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">Firebase Console</a></li>
             <li>Select your project</li>
-            <li>Navigate to "Firestore Database" in the left sidebar</li>
-            <li>Click on the "Rules" tab</li>
+            <li>Navigate to &quot;Firestore Database&quot; in the left sidebar</li>
+            <li>Click on the &quot;Rules&quot; tab</li>
             <li>Replace the current rules with the following:</li>
           </ol>
 
@@ -40,11 +40,11 @@ service cloud.firestore {
 }`}</code>
           </pre>
 
-          <p>Click "Publish" to apply the rules</p>
+          <p>Click &quot;Publish&quot; to apply the rules</p>
 
           <h2>Secure Rules for Production</h2>
           <p>
-            For a real production app, you should use more secure rules. Here's an example of more secure rules for this app:
+            For a real production app, you should use more secure rules. Here&apos;s an example of more secure rules for this app:
           </p>
 
           <pre className="bg-secondary p-4 rounded-md overflow-x-auto">

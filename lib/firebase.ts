@@ -1,5 +1,5 @@
 import { initializeApp, getApps, FirebaseError } from 'firebase/app';
-import { getFirestore, type Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, type Firestore } from 'firebase/firestore';
 
 // Check if Firebase environment variables are set
 const isFirebaseConfigured = 

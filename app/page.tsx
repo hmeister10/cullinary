@@ -10,7 +10,6 @@ import { format } from "date-fns"
 import { Calendar, Clock, Trash2 } from "lucide-react"
 import { UserNameForm } from "@/components/user-name-form"
 import { useApp } from "@/providers/app-provider"
-import { useRouter } from "next/navigation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,7 +32,6 @@ interface StoredMenu {
 
 export default function Home() {
   const { loading, hasSetName, deleteMenu } = useApp()
-  const router = useRouter()
   const [recentMenus, setRecentMenus] = useState<StoredMenu[]>([])
   const [menuToDelete, setMenuToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -106,7 +104,7 @@ export default function Home() {
     )
   }
 
-  // Show name form if user hasn't set a name yet
+  // Show name form if user hasn&apos;t set a name yet
   if (!hasSetName) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -222,7 +220,7 @@ export default function Home() {
             <Card className="h-full">
               <CardHeader>
                 <CardTitle>Join Menu</CardTitle>
-                <CardDescription>Join your partner's existing menu</CardDescription>
+                <CardDescription>Join your partner&apos;s existing menu</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-center justify-center py-4">
                 <Image

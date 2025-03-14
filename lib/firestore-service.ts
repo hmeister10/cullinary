@@ -12,9 +12,11 @@ import {
   serverTimestamp,
   type Firestore,
   type DocumentReference,
-  type CollectionReference
+  type CollectionReference,
+  type Timestamp,
+  type FieldValue
 } from 'firebase/firestore';
-import type { Menu, Dish, MenuMatches } from './mock-data';
+import type { Menu, MenuMatches } from './mock-data';
 
 // Collection references
 const MENUS_COLLECTION = 'menus';
@@ -46,14 +48,14 @@ export interface FirestoreMenu extends Omit<Menu, 'matches'> {
     dinner: string[];
     snack: string[];
   };
-  created_at: any; // Firestore timestamp
+  created_at: Timestamp | FieldValue; // Firestore timestamp or server timestamp
 }
 
 export interface FirestoreUser {
   user_id: string;
   name?: string;
   menu_ids: string[];
-  created_at: any; // Firestore timestamp
+  created_at: Timestamp | FieldValue; // Firestore timestamp or server timestamp
 }
 
 export interface FirestoreSwipe {
@@ -61,7 +63,7 @@ export interface FirestoreSwipe {
   dish_id: string;
   menu_id: string;
   is_liked: boolean;
-  created_at: any; // Firestore timestamp
+  created_at: Timestamp | FieldValue; // Firestore timestamp or server timestamp
 }
 
 export const firestoreService = {

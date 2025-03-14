@@ -8,11 +8,21 @@ import { doc, setDoc, getDoc, collection, getDocs, serverTimestamp } from "fireb
 import { FirebaseError } from "firebase/app"
 import Link from "next/link"
 
+// Define a type for the Firebase config status
+interface FirebaseConfigStatus {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+}
+
 export default function TestFirebasePage() {
   const [testResult, setTestResult] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [firebaseConfig, setFirebaseConfig] = useState<any>(null)
+  const [firebaseConfig, setFirebaseConfig] = useState<FirebaseConfigStatus | null>(null)
   const [isAvailable, setIsAvailable] = useState<boolean>(false)
 
   useEffect(() => {

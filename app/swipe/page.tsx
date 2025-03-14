@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -17,8 +17,9 @@ import { MenuParticipants } from "@/components/menu-participants"
 // Import TinderCard component for swiping
 import TinderCard from "@/components/tinder-card"
 
-export default function SwipePage() {
-  const { activeMenu, fetchDishesToSwipe, swipeOnDish, userSwipes, joinMenu, hasSetName } = useApp()
+// Component to handle search params
+function SwipePageContent() {
+  const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName } = useApp()
   const [currentCategory, setCurrentCategory] = useState<string>("breakfast")
   const [currentDishes, setCurrentDishes] = useState<Dish[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -29,11 +30,12 @@ export default function SwipePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const likeAnimationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const menuId = searchParams.get('menu')
 
-  const joinMenuFromUrl = async (menuId: string) => {
+  const joinMenuFromUrl = useCallback(async (id: string) => {
     setIsJoining(true)
     try {
-      const success = await joinMenu(menuId)
+      const success = await joinMenu(id)
       if (!success) {
         toast({
           variant: "destructive",
@@ -44,7 +46,7 @@ export default function SwipePage() {
       } else {
         // Update URL to include menu ID without reloading the page
         const url = new URL(window.location.href)
-        url.searchParams.set('menu', menuId)
+        url.searchParams.set('menu', id)
         window.history.replaceState({}, '', url.toString())
         
         toast({
@@ -63,9 +65,9 @@ export default function SwipePage() {
     } finally {
       setIsJoining(false)
     }
-  }
+  }, [joinMenu, toast, router])
 
-  const loadDishes = async () => {
+  const loadDishes = useCallback(async () => {
     setIsLoading(true)
     try {
       const dishes = await fetchDishesToSwipe(currentCategory)
@@ -80,12 +82,10 @@ export default function SwipePage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [fetchDishesToSwipe, currentCategory, toast])
 
   useEffect(() => {
     if (!hasSetName) return;
-    
-    const menuId = searchParams.get('menu')
     
     // If there's a menu ID in the URL and no active menu, try to join it
     if (menuId && !activeMenu && !isJoining) {
@@ -103,7 +103,7 @@ export default function SwipePage() {
         clearTimeout(likeAnimationTimeoutRef.current)
       }
     }
-  }, [activeMenu, currentCategory, searchParams, hasSetName])
+  }, [activeMenu, currentCategory, hasSetName, menuId, isJoining, router, joinMenuFromUrl, loadDishes])
 
   const handleSwipe = async (dish: Dish, direction: string) => {
     const isLiked = direction === "right"
@@ -232,36 +232,37 @@ export default function SwipePage() {
                     </div>
                   )}
                   
-                  {currentDishes.map((dish, index) => (
-                    <TinderCard
-                      key={dish.dish_id}
-                      onSwipe={(dir) => handleSwipe(dish, dir)}
-                      preventSwipe={["up", "down"]}
-                      className="absolute w-full h-full"
-                    >
-                      <Card className="w-full h-full overflow-hidden">
-                        <div className="relative h-3/4">
-                          <Image
-                            src={dish.image_url || "/placeholder.svg?height=300&width=300"}
-                            alt={dish.name}
-                            fill
-                            className="object-cover"
-                          />
-                          <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs">
-                            {dish.preference}
-                          </div>
-                          {dish.is_healthy && (
-                            <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs">
-                              Healthy
+                  {currentDishes.map((dish) => (
+                    <div key={dish.dish_id} className="absolute w-full h-full">
+                      <TinderCard
+                        onSwipe={(direction) => handleSwipe(dish, direction)}
+                        preventSwipe={["up", "down"]}
+                        className="w-full h-full"
+                      >
+                        <Card className="w-full h-full overflow-hidden">
+                          <div className="relative h-3/4">
+                            <Image
+                              src={dish.image_url || "/placeholder.svg?height=300&width=300"}
+                              alt={dish.name}
+                              fill
+                              className="object-cover"
+                            />
+                            <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-full text-xs">
+                              {dish.preference}
                             </div>
-                          )}
-                        </div>
-                        <CardContent className="p-4">
-                          <h3 className="text-xl font-bold">{dish.name}</h3>
-                          <p className="text-sm text-muted-foreground">{dish.category}</p>
-                        </CardContent>
-                      </Card>
-                    </TinderCard>
+                            {dish.is_healthy && (
+                              <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs">
+                                Healthy
+                              </div>
+                            )}
+                          </div>
+                          <CardContent className="p-4">
+                            <h3 className="text-xl font-bold">{dish.name}</h3>
+                            <p className="text-sm text-muted-foreground">{dish.category}</p>
+                          </CardContent>
+                        </Card>
+                      </TinderCard>
+                    </div>
                   ))}
                 </div>
               )}
@@ -298,6 +299,15 @@ export default function SwipePage() {
         )}
       </div>
     </div>
+  )
+}
+
+// Main component with suspense boundary
+export default function SwipePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
+      <SwipePageContent />
+    </Suspense>
   )
 }
 

@@ -19,7 +19,9 @@ const isLocalStorageAvailable = () => {
     localStorage.setItem(testKey, testKey);
     localStorage.removeItem(testKey);
     return true;
-  } catch (e) {
+  } catch (error) {
+    // Ignore the error and return false
+    console.error('LocalStorage is not available:', error);
     return false;
   }
 };
