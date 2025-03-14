@@ -12,6 +12,9 @@ interface StoredMenu {
   created_at: number; // timestamp
 }
 
+// Import Menu type from mock-data
+import { Menu } from './mock-data';
+
 // Check if localStorage is available
 const isLocalStorageAvailable = () => {
   try {
@@ -71,20 +74,29 @@ export const getStoredMenus = (): StoredMenu[] => {
 };
 
 // Save a menu to localStorage
-export const saveMenuToStorage = (menu: StoredMenu): void => {
+export const saveMenuToStorage = (menu: StoredMenu | Menu): void => {
   if (!isLocalStorageAvailable()) return;
   
   const menus = getStoredMenus();
   
+  // Ensure the menu has all required properties for StoredMenu
+  const storedMenu: StoredMenu = {
+    menu_id: menu.menu_id,
+    name: 'name' in menu ? menu.name : `Menu ${menu.menu_id.substring(0, 6)}`,
+    start_date: menu.start_date,
+    end_date: menu.end_date,
+    created_at: 'created_at' in menu ? menu.created_at : Date.now()
+  };
+  
   // Check if menu already exists
-  const existingIndex = menus.findIndex(m => m.menu_id === menu.menu_id);
+  const existingIndex = menus.findIndex(m => m.menu_id === storedMenu.menu_id);
   
   if (existingIndex >= 0) {
     // Update existing menu
-    menus[existingIndex] = menu;
+    menus[existingIndex] = storedMenu;
   } else {
     // Add new menu
-    menus.push(menu);
+    menus.push(storedMenu);
   }
   
   // Sort by created_at (newest first)

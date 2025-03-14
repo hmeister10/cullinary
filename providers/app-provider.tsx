@@ -24,6 +24,7 @@ interface AppContextType {
   setUserName: (name: string) => void
   getMenuParticipants: (menuId: string) => Promise<string[]>
   deleteMenu: (menuId: string) => Promise<boolean>
+  removeDishFromShortlist: (dish: Dish, category: string) => Promise<boolean>
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -369,6 +370,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Remove a dish from the shortlist
+  const removeDishFromShortlist = async (dish: Dish, category: string): Promise<boolean> => {
+    if (!user || !activeMenu) throw new Error("User not authenticated or no active menu")
+
+    try {
+      // Update the active menu by removing the dish from the matches
+      const updatedMenu = { ...activeMenu };
+      
+      // Find the dish in the matches array for the specified category
+      const categoryMatches = updatedMenu.matches[category as keyof typeof updatedMenu.matches] as Dish[];
+      const updatedMatches = categoryMatches.filter(d => d.dish_id !== dish.dish_id);
+      
+      // Update the matches for the category
+      updatedMenu.matches[category as keyof typeof updatedMenu.matches] = updatedMatches;
+      
+      // Update the menu in mock DB
+      await mockDB.updateMenu(updatedMenu);
+      
+      // Also update in Firestore if available
+      try {
+        await firestoreService.updateMenu(updatedMenu);
+      } catch (error) {
+        console.error("Error updating menu in Firestore:", error);
+        // If it's a permissions error, log it but don't throw
+        if (!isFirebasePermissionError(error)) {
+          console.warn("Non-permission Firestore error:", error);
+        }
+      }
+      
+      // Update local state
+      setActiveMenu(updatedMenu);
+      saveMenuToStorage(updatedMenu);
+      
+      return true;
+    } catch (error) {
+      console.error("Error removing dish from shortlist:", error);
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -383,7 +424,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         fetchDishesToSwipe,
         setUserName,
         getMenuParticipants,
-        deleteMenu
+        deleteMenu,
+        removeDishFromShortlist
       }}
     >
       {children}

@@ -887,6 +887,21 @@ class MockDatabase {
 
     return availableDishes
   }
+
+  // Update an existing menu
+  async updateMenu(menu: Menu): Promise<boolean> {
+    if (!menu || !menu.menu_id || !this.menus[menu.menu_id]) {
+      return false;
+    }
+    
+    this.menus[menu.menu_id] = menu;
+    return true;
+  }
+
+  // Get all dishes
+  async getAllDishes(): Promise<Dish[]> {
+    return this.dishes;
+  }
 }
 
 // Create and export a singleton instance

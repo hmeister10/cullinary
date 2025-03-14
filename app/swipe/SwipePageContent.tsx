@@ -13,9 +13,26 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { MenuParticipants } from "@/components/menu-participants"
 import { motion } from "framer-motion"
+import { Share2, Users, Menu, Eye, Trash2 } from "lucide-react"
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Badge } from "@/components/ui/badge"
+import Image from "next/image"
 
 const SwipePageContent = () => {
-  const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName } = useApp()
+  const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName, removeDishFromShortlist } = useApp()
   const [currentCategory, setCurrentCategory] = useState<string>("breakfast")
   const [currentDishes, setCurrentDishes] = useState<Dish[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -23,6 +40,8 @@ const SwipePageContent = () => {
   const [showLikeAnimation, setShowLikeAnimation] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
   const [shouldLoadDishes, setShouldLoadDishes] = useState(false)
+  const [showParticipants, setShowParticipants] = useState(false)
+  const [isRemovingDish, setIsRemovingDish] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -50,7 +69,7 @@ const SwipePageContent = () => {
         
         toast({
           title: "Joined Menu",
-          description: "You've successfully joined the menu.",
+          description: "You&apos;ve successfully joined the menu.",
         })
       }
     } catch (error) {
@@ -169,7 +188,7 @@ const SwipePageContent = () => {
 
       if (isMatch) {
         toast({
-          title: "It's a Match!",
+          title: "It&apos;s a Match!",
           description: `${dish.name} has been added to your menu.`,
         })
       }
@@ -211,6 +230,88 @@ const SwipePageContent = () => {
     router.push("/menu")
   }, [router]);
 
+  // Define copyToClipboard before it's used
+  const copyToClipboard = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      toast({
+        title: "Link Copied!",
+        description: "Menu link copied to clipboard.",
+      });
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to copy link. Please try again.",
+      });
+    });
+  }, [toast]);
+
+  const shareMenu = useCallback(() => {
+    if (!activeMenu) return;
+    
+    const url = new URL(window.location.href);
+    url.pathname = "/menu";
+    url.searchParams.set('menu', activeMenu.menu_id);
+    
+    if (navigator.share) {
+      navigator.share({
+        title: 'Check out my Cullinary menu!',
+        text: 'I created a weekly meal plan. Take a look!',
+        url: url.toString(),
+      }).catch(err => {
+        console.error('Error sharing:', err);
+        copyToClipboard(url.toString());
+      });
+    } else {
+      copyToClipboard(url.toString());
+    }
+  }, [activeMenu, copyToClipboard]);
+
+  // Get matched dishes for a specific category
+  const getMatchedDishes = useCallback((category: string) => {
+    if (!activeMenu) return [];
+    return activeMenu.matches[category as keyof typeof activeMenu.matches] || [];
+  }, [activeMenu]);
+
+  // Count total matched dishes
+  const getTotalMatchedDishes = useCallback(() => {
+    if (!activeMenu) return 0;
+    return Object.values(activeMenu.matches).reduce((acc, dishes) => acc + dishes.length, 0);
+  }, [activeMenu]);
+
+  // Handle removing a dish from the shortlist
+  const handleRemoveDish = useCallback(async (dish: Dish, category: string) => {
+    if (!activeMenu || isRemovingDish) return;
+    
+    setIsRemovingDish(true);
+    try {
+      const success = await removeDishFromShortlist(dish, category);
+      
+      if (success) {
+        toast({
+          title: "Dish Removed",
+          description: `${dish.name} has been removed from your shortlist.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to remove dish. Please try again.",
+        });
+      }
+    } catch (error) {
+      console.error("Error removing dish:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to remove dish. Please try again.",
+      });
+    } finally {
+      setIsRemovingDish(false);
+    }
+  }, [activeMenu, toast, isRemovingDish, removeDishFromShortlist]);
+
   if (!hasSetName) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -221,32 +322,146 @@ const SwipePageContent = () => {
 
   return (
     <div className="container flex flex-col items-center min-h-screen py-6 px-4">
-      <motion.div 
-        className="flex flex-col space-y-4 mb-6 w-full max-w-md mx-auto"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <h1 className="text-2xl font-bold text-center">Swipe on Dishes</h1>
-        <div className="flex flex-col space-y-2">
+      {/* Header with improved layout */}
+      <div className="w-full max-w-md mx-auto mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Swipe on Dishes</h1>
+          <div className="flex items-center space-x-2">
+            {activeMenu && (
+              <>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="icon" title="View Shortlisted Menu">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Your Shortlisted Menu</DialogTitle>
+                      <DialogDescription>
+                        Here are all the dishes you&apos;ve matched so far.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="mt-4 space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                      {["breakfast", "lunch", "dinner", "snack"].map((category) => {
+                        const dishes = getMatchedDishes(category);
+                        if (dishes.length === 0) return null;
+                        
+                        return (
+                          <div key={category} className="space-y-2">
+                            <h3 className="font-medium capitalize">{category}</h3>
+                            <div className="space-y-2">
+                              {dishes.map((dish: Dish) => (
+                                <div key={dish.dish_id} className="flex items-center p-2 rounded-lg border group hover:border-primary hover:bg-primary/5 transition-colors">
+                                  <div className="relative h-12 w-12 rounded overflow-hidden mr-3">
+                                    <Image
+                                      src={dish.image_url || "/placeholder.svg?height=48&width=48"}
+                                      alt={dish.name}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="font-medium">{dish.name}</p>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <Badge variant="outline" className="text-xs">
+                                        {dish.preference}
+                                      </Badge>
+                                      {dish.is_healthy && (
+                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                                          Healthy
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => handleRemoveDish(dish, category)}
+                                    disabled={isRemovingDish}
+                                    title="Remove from shortlist"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {getTotalMatchedDishes() === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No dishes matched yet.</p>
+                          <p className="text-sm mt-2">Swipe right on dishes you like to add them to your menu.</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex justify-between mt-4">
+                      <Button variant="outline" onClick={goToMenu}>
+                        View Full Menu
+                      </Button>
+                      <Button onClick={shareMenu}>
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share Menu
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" title="Menu Options">
+                      <Menu className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setShowParticipants(!showParticipants)}>
+                      <Users className="h-4 w-4 mr-2" />
+                      {showParticipants ? "Hide Participants" : "Show Participants"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={shareMenu}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share Menu
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={goToMenu}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Full Menu
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
+          </div>
+        </div>
+        
+        {/* Progress bar with improved styling */}
+        <div className="flex flex-col space-y-2 mb-4">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium">Menu Progress</span>
             <span className="text-sm text-muted-foreground">
               {!activeMenu
                 ? "0/28"
-                : `${activeMenu.matches.breakfast.length + activeMenu.matches.lunch.length + activeMenu.matches.dinner.length + activeMenu.matches.snack.length}/28`}
+                : `${getTotalMatchedDishes()}/28`}
             </span>
           </div>
           <Progress value={calculateProgress()} className="h-2" />
         </div>
         
-        {/* Menu Participants */}
-        {activeMenu && (
-          <div className="mt-4">
+        {/* Collapsible participants section */}
+        {activeMenu && showParticipants && (
+          <motion.div 
+            className="mb-4"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
             <MenuParticipants menuId={activeMenu.menu_id} />
-          </div>
+          </motion.div>
         )}
-      </motion.div>
+      </div>
 
       <div className="w-full max-w-md mx-auto">
         <Tabs defaultValue="breakfast" value={currentCategory} onValueChange={setCurrentCategory} className="w-full">

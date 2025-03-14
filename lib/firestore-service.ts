@@ -16,7 +16,7 @@ import {
   type Timestamp,
   type FieldValue
 } from 'firebase/firestore';
-import type { Menu, MenuMatches } from './mock-data';
+import { mockDB, type Dish, type Menu, type MenuMatches } from './mock-data';
 
 // Collection references
 const MENUS_COLLECTION = 'menus';
@@ -297,44 +297,72 @@ export const firestoreService = {
   
   // Helper: Get full menu matches with dish details
   async getMenuMatches(menuId: string, firestoreMatches: FirestoreMenu['matches']): Promise<MenuMatches> {
-    // This would normally fetch dish details from a dishes collection
-    // For now, we'll use the mock data
-    // In a real app, you'd fetch the dish details from Firestore
+    // Instead of using placeholder data, fetch the actual dish data from mockDB
+    const allDishes = await mockDB.getAllDishes();
     
-    // Placeholder implementation
+    // Create a map of dish_id to dish for quick lookup
+    const dishMap = new Map<string, Dish>();
+    allDishes.forEach((dish: Dish) => {
+      dishMap.set(dish.dish_id, dish);
+    });
+    
     return {
-      breakfast: firestoreMatches.breakfast.map(id => ({ 
-        dish_id: id,
-        name: `Breakfast Dish ${id}`,
-        category: 'Breakfast',
-        is_healthy: true,
-        preference: 'Veg',
-        image_url: `https://source.unsplash.com/random/300x300/?breakfast-${id}`
-      })),
-      lunch: firestoreMatches.lunch.map(id => ({ 
-        dish_id: id,
-        name: `Lunch Dish ${id}`,
-        category: 'Lunch',
-        is_healthy: true,
-        preference: 'Veg',
-        image_url: `https://source.unsplash.com/random/300x300/?lunch-${id}`
-      })),
-      dinner: firestoreMatches.dinner.map(id => ({ 
-        dish_id: id,
-        name: `Dinner Dish ${id}`,
-        category: 'Dinner',
-        is_healthy: true,
-        preference: 'Veg',
-        image_url: `https://source.unsplash.com/random/300x300/?dinner-${id}`
-      })),
-      snack: firestoreMatches.snack.map(id => ({ 
-        dish_id: id,
-        name: `Snack Dish ${id}`,
-        category: 'Snack',
-        is_healthy: true,
-        preference: 'Veg',
-        image_url: `https://source.unsplash.com/random/300x300/?snack-${id}`
-      }))
+      breakfast: firestoreMatches.breakfast.map(id => {
+        const dish = dishMap.get(id);
+        if (dish) return dish;
+        
+        // Fallback if dish not found
+        return { 
+          dish_id: id,
+          name: `Breakfast Dish ${id}`,
+          category: 'Breakfast',
+          is_healthy: true,
+          preference: 'Veg',
+          image_url: `/assets/food-placeholder.svg`
+        };
+      }),
+      lunch: firestoreMatches.lunch.map(id => {
+        const dish = dishMap.get(id);
+        if (dish) return dish;
+        
+        // Fallback if dish not found
+        return { 
+          dish_id: id,
+          name: `Lunch Dish ${id}`,
+          category: 'Lunch',
+          is_healthy: true,
+          preference: 'Veg',
+          image_url: `/assets/food-placeholder.svg`
+        };
+      }),
+      dinner: firestoreMatches.dinner.map(id => {
+        const dish = dishMap.get(id);
+        if (dish) return dish;
+        
+        // Fallback if dish not found
+        return { 
+          dish_id: id,
+          name: `Dinner Dish ${id}`,
+          category: 'Dinner',
+          is_healthy: true,
+          preference: 'Veg',
+          image_url: `/assets/food-placeholder.svg`
+        };
+      }),
+      snack: firestoreMatches.snack.map(id => {
+        const dish = dishMap.get(id);
+        if (dish) return dish;
+        
+        // Fallback if dish not found
+        return { 
+          dish_id: id,
+          name: `Snack Dish ${id}`,
+          category: 'Snack',
+          is_healthy: true,
+          preference: 'Veg',
+          image_url: `/assets/food-placeholder.svg`
+        };
+      })
     };
   },
   
@@ -466,6 +494,47 @@ export const firestoreService = {
     } catch (error) {
       console.error('Error checking if menu exists in Firestore:', error);
       return false;
+    }
+  },
+
+  // Add updateMenu method to the FirestoreService class
+  async updateMenu(menu: Menu): Promise<void> {
+    if (!isFirebaseAvailable() || !menu || !menu.menu_id) {
+      throw new Error('Firestore is not available or invalid menu');
+    }
+
+    try {
+      const menuRef = getDocRef(MENUS_COLLECTION, menu.menu_id);
+      
+      // Convert Menu to FirestoreMenu format
+      const firestoreMatches = {
+        breakfast: menu.matches.breakfast.map(dish => dish.dish_id),
+        lunch: menu.matches.lunch.map(dish => dish.dish_id),
+        dinner: menu.matches.dinner.map(dish => dish.dish_id),
+        snack: menu.matches.snack.map(dish => dish.dish_id)
+      };
+      
+      // Get the existing menu to preserve created_at
+      const menuDoc = await getDoc(menuRef);
+      if (!menuDoc.exists()) {
+        throw new Error(`Menu with ID ${menu.menu_id} not found`);
+      }
+      
+      const existingMenu = menuDoc.data() as FirestoreMenu;
+      
+      // Update the menu document
+      await updateDoc(menuRef, {
+        start_date: menu.start_date,
+        end_date: menu.end_date,
+        participants: menu.participants,
+        matches: firestoreMatches,
+        status: menu.status,
+        // Preserve created_at from existing menu
+        created_at: existingMenu.created_at
+      });
+    } catch (error) {
+      console.error('Error updating menu in Firestore:', error);
+      throw error;
     }
   }
 }; 
