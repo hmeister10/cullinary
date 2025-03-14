@@ -274,12 +274,14 @@ export default function Home() {
       </main>
       <footer className="border-t">
         <div className="container flex h-16 items-center justify-between px-4 sm:px-8">
-          <p className="text-sm text-muted-foreground">© 2024 Menu Maker. All rights reserved.</p>
-          <div className="flex items-center space-x-4">
+          <p className="text-sm text-muted-foreground flex items-center">
+            <span className="mr-2">Made to reduce kalesh... enjoy!</span>
+          </p>
+          {/* <div className="flex items-center space-x-4">
             <Link href="/test-firebase" className="text-sm text-muted-foreground hover:text-foreground">
               Test Firebase
             </Link>
-          </div>
+          </div> */}
         </div>
       </footer>
     </div>
