@@ -11,6 +11,7 @@ import { Calendar, Clock, Trash2 } from "lucide-react"
 import { useApp } from "@/providers/app-provider"
 import { Header } from "@/components/header"
 import { QuickSetup } from "./profile/components/QuickSetup"
+import { MenuTile } from "@/app/components/MenuTile"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
 
 interface StoredMenu {
   menu_id: string;
@@ -46,6 +48,7 @@ export default function Home() {
   const [menuToDelete, setMenuToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const { toast } = useToast()
+  const router = useRouter()
 
   // Load menus from localStorage on client side
   useEffect(() => {
@@ -238,8 +241,47 @@ export default function Home() {
             </p>
           </div>
           
+          {/* Menu Tiles */}
+          <div className="w-full max-w-4xl mx-auto mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <MenuTile
+              title="Create Menu"
+              description="Start a new menu and invite your partner"
+              iconType="create-menu"
+              onClick={() => router.push('/create')}
+              actionButton={
+                <Button className="w-full" onClick={() => router.push('/create')}>
+                  Create New Menu
+                </Button>
+              }
+            />
+            
+            <MenuTile
+              title="Join Menu"
+              description="Join an existing menu with a code"
+              iconType="join-menu"
+              onClick={() => router.push('/join')}
+              actionButton={
+                <Button className="w-full" variant="outline" onClick={() => router.push('/join')}>
+                  Enter Menu Code
+                </Button>
+              }
+            />
+            
+            <MenuTile
+              title="Recipe Collection"
+              description="Discover our curated recipe collection"
+              iconType="recipe-collection"
+              onClick={() => router.push('/recipes')}
+              actionButton={
+                <Button className="w-full" variant="secondary" onClick={() => router.push('/recipes')}>
+                  Browse Recipes
+                </Button>
+              }
+            />
+          </div>
+          
           {recentMenus.length > 0 && (
-            <div className="w-full max-w-3xl mx-auto mt-4">
+            <div className="w-full max-w-4xl mx-auto mt-12">
               <h2 className="text-2xl font-bold mb-6 flex items-center">
                 <span className="w-1.5 h-6 bg-primary rounded-full mr-2 inline-block"></span>
                 Your Recent Menus
@@ -248,34 +290,31 @@ export default function Home() {
                 {recentMenus.map((menu) => (
                   <Card key={menu.menu_id} className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
                     <CardHeader className="p-4 bg-muted/50">
+                      <CardTitle className="text-lg">{menu.name}</CardTitle>
+                      <CardDescription className="flex items-center mt-1">
+                        <Calendar className="h-4 w-4 mr-1" />
+                        {format(new Date(menu.start_date), "MMM d")} - {format(new Date(menu.end_date), "MMM d, yyyy")}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-4">
                       <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg">{menu.name}</CardTitle>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Clock className="h-4 w-4 mr-1" />
+                          Created {format(new Date(menu.created_at), "MMM d, yyyy")}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={(e) => handleDeleteMenu(menu.menu_id, e)}
-                          title="Delete menu"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-3">
-                      <div className="flex items-center text-sm text-muted-foreground mb-2">
-                        <Calendar className="mr-2 h-4 w-4 text-primary" />
-                        <span>
-                          {format(new Date(menu.start_date), "MMM d")} - {format(new Date(menu.end_date), "MMM d, yyyy")}
-                        </span>
-                      </div>
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <Clock className="mr-2 h-4 w-4 text-primary" />
-                        <span>Created {format(new Date(menu.created_at), "MMM d, yyyy")}</span>
-                      </div>
                     </CardContent>
                     <CardFooter className="p-4 pt-0">
-                      <Link href={`/swipe?menu=${menu.menu_id}`} className="w-full">
-                        <Button variant="default" className="w-full">Continue</Button>
+                      <Link href={`/menu/${menu.menu_id}`} className="w-full">
+                        <Button variant="outline" className="w-full">View Menu</Button>
                       </Link>
                     </CardFooter>
                   </Card>
@@ -283,130 +322,8 @@ export default function Home() {
               </div>
             </div>
           )}
-          
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Create Menu Card */}
-            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="p-6">
-                <CardTitle>Create Menu</CardTitle>
-                <CardDescription>Start a new menu and invite your partner</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="flex justify-center p-6 bg-muted/30">
-                  <Image 
-                    src="/assets/create-menu.svg" 
-                    alt="Create Menu" 
-                    width={120} 
-                    height={120} 
-                    className="h-32 w-32 object-contain"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="p-6 pt-4">
-                <Link href="/create" className="w-full">
-                  <Button className="w-full">Create New Menu</Button>
-                </Link>
-              </CardFooter>
-            </Card>
-
-            {/* Join Menu Card */}
-            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="p-6">
-                <CardTitle>Join Menu</CardTitle>
-                <CardDescription>Join an existing menu with a code</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="flex justify-center p-6 bg-muted/30">
-                  <Image 
-                    src="/assets/join-menu.svg" 
-                    alt="Join Menu" 
-                    width={120} 
-                    height={120} 
-                    className="h-32 w-32 object-contain"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="p-6 pt-4">
-                <Link href="/join" className="w-full">
-                  <Button className="w-full" variant="outline">Enter Menu Code</Button>
-                </Link>
-              </CardFooter>
-            </Card>
-            
-            {/* Recipe Collection Card */}
-            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
-              <CardHeader className="p-6">
-                <CardTitle>Recipe Collection</CardTitle>
-                <CardDescription>Discover our curated recipe collection</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="flex justify-center p-6 bg-muted/30">
-                  <Image 
-                    src="/assets/food-placeholder.svg" 
-                    alt="Recipe Collection" 
-                    width={120} 
-                    height={120} 
-                    className="h-32 w-32 object-contain"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter className="p-6 pt-4">
-                <Link href="/recipes" className="w-full">
-                  <Button className="w-full" variant="outline">View Recipes</Button>
-                </Link>
-              </CardFooter>
-            </Card>
-          </div>
-          <div className="mx-auto flex max-w-[980px] flex-col items-center gap-6 text-center mt-8">
-            <h2 className="text-2xl font-bold flex items-center">
-              <span className="w-1.5 h-6 bg-primary rounded-full mr-2 inline-block"></span>
-              How It Works
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full mt-4">
-              <div className="flex flex-col items-center p-6 rounded-xl bg-card border shadow-sm">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4 relative">
-                  <span className="text-xl font-bold">1</span>
-                  <div className="absolute -inset-1 rounded-full border-2 border-primary/30 animate-ping opacity-20"></div>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Create or Join</h3>
-                <p className="text-sm text-muted-foreground text-center">
-                  Start a menu and share the ID or join with a menu ID
-                </p>
-              </div>
-              <div className="flex flex-col items-center p-6 rounded-xl bg-card border shadow-sm">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
-                  <span className="text-xl font-bold">2</span>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Swipe on Dishes</h3>
-                <p className="text-sm text-muted-foreground text-center">
-                  Both users swipe on dishes they like or dislike
-                </p>
-              </div>
-              <div className="flex flex-col items-center p-6 rounded-xl bg-card border shadow-sm">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground mb-4">
-                  <span className="text-xl font-bold">3</span>
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Get Matched Menu</h3>
-                <p className="text-sm text-muted-foreground text-center">
-                  View and share your perfect weekly menu
-                </p>
-              </div>
-            </div>
-          </div>
         </section>
       </main>
-      <footer className="border-t">
-        <div className="container flex h-16 items-center justify-between px-4 sm:px-8">
-          <p className="text-sm text-muted-foreground flex items-center">
-            <span className="mr-2">Made to reduce kalesh... enjoy!</span>
-          </p>
-          {/* <div className="flex items-center space-x-4">
-            <Link href="/test-firebase" className="text-sm text-muted-foreground hover:text-foreground">
-              Test Firebase
-            </Link>
-          </div> */}
-        </div>
-      </footer>
     </div>
   )
 }

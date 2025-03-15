@@ -35,10 +35,17 @@ export async function GET(request: Request) {
     const cuisine = searchParams.get('cuisine') as CuisineType | null;
     const query = searchParams.get('query');
     const id = searchParams.get('id');
+    const clearCache = searchParams.get('clear_cache') === 'true';
     
     // Pagination parameters
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
+    
+    // Clear cache if requested
+    if (clearCache) {
+      dishesCache = null;
+      console.log('Dishes cache cleared');
+    }
     
     // Get or initialize dishes
     if (!dishesCache) {
@@ -177,8 +184,8 @@ function transformCsvRecordsToDishes(records: CsvDishRecord[]): Dish[] {
   
   // Process all records, not just the first 100
   return records.map((record, index) => {
-    // Generate a unique ID
-    const dish_id = `csv_${index}_${record.RecipeId || record.TranslatedRecipeName.replace(/\s+/g, '_').toLowerCase()}`;
+    // Generate a unique ID - ensure uniqueness by using the index as the primary key
+    const dish_id = `csv_${index + 1}_${index}_${record.TranslatedRecipeName.slice(0, 20).replace(/\s+/g, '_').toLowerCase()}`;
     
     // Determine meal category based on Course
     const category = mapCourseToCategoryType(record.Course);

@@ -1,0 +1,18 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="50" fill="#F3F4F6" />
+  
+  <!-- Menu papers (stacked) -->
+  <rect x="45" y="30" width="45" height="65" rx="4" fill="white" stroke="#374151" stroke-width="2"/>
+  <rect x="35" y="25" width="45" height="65" rx="4" fill="white" stroke="#374151" stroke-width="2"/>
+  
+  <!-- Menu lines -->
+  <line x1="45" y1="40" x2="70" y2="40" stroke="#374151" stroke-width="2" stroke-linecap="round"/>
+  <line x1="45" y1="50" x2="70" y2="50" stroke="#374151" stroke-width="2" stroke-linecap="round"/>
+  <line x1="45" y1="60" x2="70" y2="60" stroke="#374151" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Link/Join symbol -->
+  <path d="M65 75 L75 65 C78.3137 61.6863 83.6863 61.6863 87 65 C90.3137 68.3137 90.3137 73.6863 87 77 L77 87" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"/>
+  <path d="M55 85 L45 95 C41.6863 98.3137 36.3137 98.3137 33 95 C29.6863 91.6863 29.6863 86.3137 33 83 L43 73" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"/>
+  <path d="M55 75 L65 85" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"/>
+</svg> 

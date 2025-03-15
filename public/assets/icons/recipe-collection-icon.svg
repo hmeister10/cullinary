@@ -1,0 +1,21 @@
+<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="50" fill="#F3F4F6" />
+  
+  <!-- Recipe book -->
+  <rect x="30" y="35" width="60" height="50" rx="3" fill="#FBBF24" stroke="#374151" stroke-width="2"/>
+  <rect x="30" y="35" width="10" height="50" rx="1" fill="#F59E0B" stroke="#374151" stroke-width="2"/>
+  
+  <!-- Recipe cards -->
+  <rect x="45" y="30" width="40" height="30" rx="2" fill="white" stroke="#374151" stroke-width="2" transform="rotate(-5 45 30)"/>
+  <rect x="50" y="25" width="40" height="30" rx="2" fill="white" stroke="#374151" stroke-width="2" transform="rotate(5 50 25)"/>
+  
+  <!-- Recipe lines -->
+  <line x1="55" y1="35" x2="75" y2="33" stroke="#374151" stroke-width="1.5" stroke-linecap="round" transform="rotate(5 50 25)"/>
+  <line x1="55" y1="40" x2="80" y2="38" stroke="#374151" stroke-width="1.5" stroke-linecap="round" transform="rotate(5 50 25)"/>
+  <line x1="55" y1="45" x2="70" y2="43" stroke="#374151" stroke-width="1.5" stroke-linecap="round" transform="rotate(5 50 25)"/>
+  
+  <!-- Utensils -->
+  <path d="M85 75 C85 65 95 65 95 75 L95 85 L85 85 L85 75 Z" fill="#E5E7EB" stroke="#374151" stroke-width="2"/>
+  <path d="M75 85 L75 65 C75 60 85 60 85 65 L85 85" stroke="#374151" stroke-width="2" stroke-linecap="round"/>
+</svg> 
