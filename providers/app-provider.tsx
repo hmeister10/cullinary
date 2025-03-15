@@ -4,15 +4,38 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { useToast } from "@/hooks/use-toast"
 import { mockDB, type Dish, type Menu } from "@/lib/mock-data"
 import { firestoreService } from "@/lib/firestore-service"
-import { getUserId, saveUserId, saveMenuToStorage, getUserName, saveUserName, hasUserName } from "@/lib/local-storage"
+import { getUserId, saveUserId, saveMenuToStorage, getUserName, saveUserName, hasUserName, getUserPreferences, saveUserPreferences } from "@/lib/local-storage"
 import { isFirebasePermissionError } from "@/lib/firebase"
 
 interface UserSwipes {
   [dishId: string]: boolean // true for right swipe, false for left swipe
 }
 
+interface DietaryPreferences {
+  isVegetarian: boolean;
+  dietType?: string;
+  region?: string;
+  healthTags?: string[];
+  cuisinePreferences: string[];
+  proteinPreferences: string[];
+  specificPreferences: string[];
+  avoidances: string[];
+  occasionBasedDiet?: {
+    enabled: boolean;
+    days: string[];
+    festivals: string[];
+    other: string[];
+  };
+}
+
+interface User {
+  uid: string;
+  name?: string;
+  dietaryPreferences?: DietaryPreferences;
+}
+
 interface AppContextType {
-  user: { uid: string; name?: string } | null
+  user: User | null
   loading: boolean
   activeMenu: Menu | null
   userSwipes: UserSwipes
@@ -22,6 +45,7 @@ interface AppContextType {
   swipeOnDish: (dish: Dish, isLiked: boolean) => Promise<boolean>
   fetchDishesToSwipe: (category: string) => Promise<Dish[]>
   setUserName: (name: string) => void
+  updateUserProfile: (profile: Partial<User>) => Promise<boolean>
   getMenuParticipants: (menuId: string) => Promise<string[]>
   deleteMenu: (menuId: string) => Promise<boolean>
   removeDishFromShortlist: (dish: Dish, category: string) => Promise<boolean>
@@ -30,7 +54,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<{ uid: string; name?: string } | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [activeMenu, setActiveMenu] = useState<Menu | null>(null)
   const [userSwipes, setUserSwipes] = useState<UserSwipes>({})
@@ -45,6 +69,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Check if user exists in localStorage
         let userId = getUserId();
         let userName = getUserName();
+        let userPreferences = getUserPreferences();
         
         console.log("AppProvider: Retrieved from localStorage - userId:", userId ? "exists" : "not found", "userName:", userName ? "exists" : "not found");
         
@@ -55,7 +80,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           console.log("AppProvider: Generated new userId:", userId);
         }
         
-        setUser({ uid: userId, name: userName || undefined })
+        setUser({ 
+          uid: userId, 
+          name: userName || undefined,
+          dietaryPreferences: userPreferences || undefined
+        })
         setHasSetName(!!userName)
         console.log("AppProvider: Set user state with userId:", userId, "hasSetName:", !!userName);
 
@@ -94,6 +123,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
     } catch (error) {
       console.error("Error updating user name:", error);
+    }
+  };
+
+  // Update user profile
+  const updateUserProfile = async (profile: Partial<User>): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      const updatedUser = { ...user, ...profile };
+      
+      // Save to localStorage
+      if (profile.name) {
+        saveUserName(profile.name);
+        setHasSetName(true);
+      }
+      
+      if (profile.dietaryPreferences) {
+        saveUserPreferences(profile.dietaryPreferences);
+      }
+      
+      // Update state
+      setUser(updatedUser);
+      
+      // Update in Firestore if available
+      try {
+        if (profile.name) {
+          await firestoreService.updateUserName(user.uid, profile.name);
+        }
+        
+        // Add Firestore update for dietary preferences if needed
+        // This would require extending the firestoreService
+        
+        return true;
+      } catch (error) {
+        console.error("Error updating user profile in Firestore:", error);
+        // Still return true since we updated locally
+        return true;
+      }
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      return false;
     }
   };
 
@@ -438,6 +508,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         swipeOnDish,
         fetchDishesToSwipe,
         setUserName,
+        updateUserProfile,
         getMenuParticipants,
         deleteMenu,
         removeDishFromShortlist

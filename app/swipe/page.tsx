@@ -2,6 +2,7 @@
 
 import { Suspense } from "react"
 import dynamic from 'next/dynamic'
+import { Header } from "@/components/header"
 
 // Use dynamic import with SSR disabled to prevent hydration issues
 const SwipePageContent = dynamic(() => import('./SwipePageContent'), { ssr: false })
@@ -16,9 +17,14 @@ const Loading = () => (
 // Main page component
 export default function SwipePage() {
   return (
-    <Suspense fallback={<Loading />}>
-      <SwipePageContent />
-    </Suspense>
+    <div className="flex min-h-screen flex-col">
+      <Header showBackButton title="Dish Swiper" />
+      <main className="flex-1">
+        <Suspense fallback={<Loading />}>
+          <SwipePageContent />
+        </Suspense>
+      </main>
+    </div>
   )
 }
 

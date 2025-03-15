@@ -2,6 +2,7 @@
 const USER_ID_KEY = 'cullinary_user_id';
 const USER_NAME_KEY = 'cullinary_user_name';
 const MENUS_KEY = 'cullinary_menus';
+const USER_PREFERENCES_KEY = 'cullinary_user_preferences';
 
 // Types
 interface StoredMenu {
@@ -10,6 +11,23 @@ interface StoredMenu {
   start_date: string;
   end_date: string;
   created_at: number; // timestamp
+}
+
+interface DietaryPreferences {
+  isVegetarian: boolean;
+  dietType?: string;
+  region?: string;
+  healthTags?: string[];
+  cuisinePreferences: string[];
+  proteinPreferences: string[];
+  specificPreferences: string[];
+  avoidances: string[];
+  occasionBasedDiet?: {
+    enabled: boolean;
+    days: string[];
+    festivals: string[];
+    other: string[];
+  };
 }
 
 // Import Menu type from mock-data
@@ -132,4 +150,33 @@ export const removeMenuFromStorage = (menuId: string): void => {
   const filteredMenus = menus.filter(menu => menu.menu_id !== menuId);
   
   localStorage.setItem(MENUS_KEY, JSON.stringify(filteredMenus));
+};
+
+// Get user dietary preferences from localStorage
+export const getUserPreferences = (): DietaryPreferences | null => {
+  if (!isLocalStorageAvailable()) {
+    console.log('LocalStorage: getUserPreferences - localStorage not available');
+    return null;
+  }
+  
+  const preferencesJson = localStorage.getItem(USER_PREFERENCES_KEY);
+  if (!preferencesJson) return null;
+  
+  try {
+    return JSON.parse(preferencesJson);
+  } catch (e) {
+    console.error('Error parsing user preferences from localStorage:', e);
+    return null;
+  }
+};
+
+// Save user dietary preferences to localStorage
+export const saveUserPreferences = (preferences: DietaryPreferences): void => {
+  if (!isLocalStorageAvailable()) {
+    console.log('LocalStorage: saveUserPreferences - localStorage not available');
+    return;
+  }
+  
+  console.log('LocalStorage: saveUserPreferences - saving preferences');
+  localStorage.setItem(USER_PREFERENCES_KEY, JSON.stringify(preferences));
 }; 
