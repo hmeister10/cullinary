@@ -284,52 +284,75 @@ export default function Home() {
             </div>
           )}
           
-          <div className="grid w-full max-w-3xl mx-auto items-center justify-center gap-6 md:grid-cols-2 mt-4">
-            <Card className="h-full border-none shadow-md hover:shadow-lg transition-shadow overflow-hidden">
-              <CardHeader className="pb-0">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {/* Create Menu Card */}
+            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="p-6">
                 <CardTitle>Create Menu</CardTitle>
                 <CardDescription>Start a new menu and invite your partner</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col items-center justify-center py-6">
-                <div className="relative w-32 h-32 mb-4 bg-primary/10 rounded-full flex items-center justify-center">
-                  <div className="absolute inset-0 bg-primary/5 rounded-full animate-pulse"></div>
-                  <Image
-                    src="/placeholder.svg?height=80&width=80"
-                    alt="Create Menu"
-                    width={80}
-                    height={80}
-                    className="relative z-10"
+              <CardContent className="p-0">
+                <div className="flex justify-center p-6 bg-muted/30">
+                  <Image 
+                    src="/assets/create-menu.svg" 
+                    alt="Create Menu" 
+                    width={120} 
+                    height={120} 
+                    className="h-32 w-32 object-contain"
                   />
                 </div>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="p-6 pt-4">
                 <Link href="/create" className="w-full">
-                  <Button className="w-full">Create Menu</Button>
+                  <Button className="w-full">Create New Menu</Button>
                 </Link>
               </CardFooter>
             </Card>
-            <Card className="h-full border-none shadow-md hover:shadow-lg transition-shadow overflow-hidden">
-              <CardHeader className="pb-0">
+
+            {/* Join Menu Card */}
+            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="p-6">
                 <CardTitle>Join Menu</CardTitle>
-                <CardDescription>Join your partner&apos;s existing menu</CardDescription>
+                <CardDescription>Join an existing menu with a code</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col items-center justify-center py-6">
-                <div className="relative w-32 h-32 mb-4 bg-secondary/20 rounded-full flex items-center justify-center">
-                  <div className="absolute inset-0 bg-secondary/10 rounded-full animate-pulse"></div>
-                  <Image
-                    src="/placeholder.svg?height=80&width=80"
-                    alt="Join Menu"
-                    width={80}
-                    height={80}
-                    className="relative z-10"
+              <CardContent className="p-0">
+                <div className="flex justify-center p-6 bg-muted/30">
+                  <Image 
+                    src="/assets/join-menu.svg" 
+                    alt="Join Menu" 
+                    width={120} 
+                    height={120} 
+                    className="h-32 w-32 object-contain"
                   />
                 </div>
               </CardContent>
-              <CardFooter>
+              <CardFooter className="p-6 pt-4">
                 <Link href="/join" className="w-full">
-                  <Button className="w-full" variant="outline">
-                    Join Menu
-                  </Button>
+                  <Button className="w-full" variant="outline">Enter Menu Code</Button>
+                </Link>
+              </CardFooter>
+            </Card>
+            
+            {/* Recipe Collection Card */}
+            <Card className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
+              <CardHeader className="p-6">
+                <CardTitle>Recipe Collection</CardTitle>
+                <CardDescription>Discover our curated recipe collection</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="flex justify-center p-6 bg-muted/30">
+                  <Image 
+                    src="/assets/food-placeholder.svg" 
+                    alt="Recipe Collection" 
+                    width={120} 
+                    height={120} 
+                    className="h-32 w-32 object-contain"
+                  />
+                </div>
+              </CardContent>
+              <CardFooter className="p-6 pt-4">
+                <Link href="/recipes" className="w-full">
+                  <Button className="w-full" variant="outline">View Recipes</Button>
                 </Link>
               </CardFooter>
             </Card>

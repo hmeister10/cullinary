@@ -1,15 +1,7 @@
+// Import DietaryPreferences from local-storage
+import { DietaryPreferences } from "./local-storage";
+import { dishes, Dish } from "./dishes";
 export type MenuStatus = "pending" | "in_progress" | "completed"
-export type MealCategory = "Breakfast" | "Lunch" | "Dinner" | "Snack"
-export type DietPreference = "Veg" | "Non-Veg"
-
-export interface Dish {
-  dish_id: string
-  name: string
-  category: MealCategory
-  is_healthy: boolean
-  preference: DietPreference
-  image_url: string
-}
 
 export interface MenuMatches {
   breakfast: Dish[]
@@ -40,696 +32,12 @@ class MockDatabase {
   private dishes: Dish[] = []
 
   constructor() {
-    this.initializeDishes()
+    // Check if dishes are already initialized
+    if (this.dishes.length === 0) {
+      this.dishes = dishes
+    }
   }
 
-  // Initialize with sample dishes
-  private initializeDishes() {
-    // Single placeholder image for all dishes
-    const placeholderImage = "/assets/food-placeholder.svg";
-    
-    this.dishes = [
-      // Breakfast dishes
-      {
-        dish_id: "b1",
-        name: "Veg Sandwich",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b2",
-        name: "Boiled Egg Sandwich",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b3",
-        name: "Boiled Chicken Sandwich",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b4",
-        name: "Tuna Sandwich",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b5",
-        name: "Toasters",
-        category: "Breakfast",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b6",
-        name: "Ham Sandwich",
-        category: "Breakfast",
-        is_healthy: false,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b7",
-        name: "French Toast",
-        category: "Breakfast",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b8",
-        name: "Scrambled Eggs",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b9",
-        name: "Pancake (Oats and Banana)",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b10",
-        name: "Kheema Pav",
-        category: "Breakfast",
-        is_healthy: false,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b11",
-        name: "Baked Beans and Toast",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b12",
-        name: "Sabudana Khichdi",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b13",
-        name: "Aloo Poha",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b14",
-        name: "OG Dosa",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b15",
-        name: "Salsa Chappie",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b16",
-        name: "Upma",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b17",
-        name: "Vermicelli",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b18",
-        name: "Omelette",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b19",
-        name: "Masoor Dal Dosa",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b20",
-        name: "Oats Dosa",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b21",
-        name: "Sai Bhaji Ki Tikki",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "b22",
-        name: "Cereal and Milk",
-        category: "Breakfast",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-
-      // Lunch dishes
-      {
-        dish_id: "l1",
-        name: "Boneless Chicken in Malvani Masala",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l2",
-        name: "Boneless Chicken in Green Masala",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l3",
-        name: "Mutton Kheema",
-        category: "Lunch",
-        is_healthy: false,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l4",
-        name: "Chicken Biryani",
-        category: "Lunch",
-        is_healthy: false,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l5",
-        name: "Chicken Tikka Masala",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l6",
-        name: "Chicken Afghani Masala",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l7",
-        name: "Chicken Achari Masala",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l8",
-        name: "Aloo Paratha",
-        category: "Lunch",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l9",
-        name: "Paneer Paratha",
-        category: "Lunch",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l10",
-        name: "Methi Thepla",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l11",
-        name: "Dal Thepla",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l12",
-        name: "Bhindi Aloo",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l13",
-        name: "Methi Rice",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l14",
-        name: "Methi Matar Malai",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l15",
-        name: "Methi Aloo",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l16",
-        name: "Jeera Aloo",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l17",
-        name: "Parathe Walla Aloo Sabzi",
-        category: "Lunch",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l18",
-        name: "Dum Aloo",
-        category: "Lunch",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l19",
-        name: "Brown Rice and Jeera Aloo",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l20",
-        name: "Chawli and Roti",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l21",
-        name: "Channa and Roti",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l22",
-        name: "Rajma and Rice",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l23",
-        name: "Tomato Potato and Roti",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l24",
-        name: "Gobi Aloo",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l25",
-        name: "Dudhi Thepla",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l26",
-        name: "Paneer ka Sabzi",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l27",
-        name: "Gobi Peas",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l28",
-        name: "Cabbage Carrot ka Sabzi",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l29",
-        name: "Bhindi Masala Sukka",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "l30",
-        name: "Bhindi Basar",
-        category: "Lunch",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-
-      // Dinner dishes
-      {
-        dish_id: "d1",
-        name: "Creamy Garlic Grilled Chicken",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d2",
-        name: "Spaghetti Aglio Olio",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d3",
-        name: "Pasta in Pumpkin Red Sauce",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d4",
-        name: "Pasta in Bell Pepper White Sauce",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d5",
-        name: "Hakka Noodles in Chilli Oil",
-        category: "Dinner",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d6",
-        name: "Thai Curry and Rice",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d7",
-        name: "Chicken Kheema",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d8",
-        name: "Pasta in Cauliflower White Sauce",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d9",
-        name: "Spaghetti Bolognese",
-        category: "Dinner",
-        is_healthy: false,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d10",
-        name: "Spaghetti and Meatballs",
-        category: "Dinner",
-        is_healthy: false,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d11",
-        name: "Paneer Frankie",
-        category: "Dinner",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d12",
-        name: "Dahi Kadi",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d13",
-        name: "Rai ki Bhaji",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d14",
-        name: "Moong Dal and Jowari Roti",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d15",
-        name: "Tur Dal and Rice",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d16",
-        name: "Thick Dal and Roti",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d17",
-        name: "Missal Pav",
-        category: "Dinner",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d18",
-        name: "Pav Bhaji",
-        category: "Dinner",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d19",
-        name: "Grilled Chicken and Veggies",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d20",
-        name: "Kofta Curry",
-        category: "Dinner",
-        is_healthy: false,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d21",
-        name: "Baked Fish and Veggies",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "d22",
-        name: "Prawn Curry Rice",
-        category: "Dinner",
-        is_healthy: true,
-        preference: "Non-Veg",
-        image_url: placeholderImage,
-      },
-
-      // Snack dishes (a few from your list that could be snacks)
-      {
-        dish_id: "s1",
-        name: "Boiled Arbi",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s2",
-        name: "Bhindi Dahi Masala",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s3",
-        name: "French Beans ka Sabzi",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s4",
-        name: "Sukkha Karela",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s5",
-        name: "Karela Sabzi",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s6",
-        name: "Sukka Dudhi",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s7",
-        name: "Dudhi in Coconut Gravy",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s8",
-        name: "Meha ka Sabzi",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s9",
-        name: "Mushroom ka Sabzi",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-      {
-        dish_id: "s10",
-        name: "Sukka Pumpkin",
-        category: "Snack",
-        is_healthy: true,
-        preference: "Veg",
-        image_url: placeholderImage,
-      },
-    ]
-  }
 
   // Create a new user
   async createUser(userId: string): Promise<UserData> {
@@ -865,12 +173,7 @@ class MockDatabase {
   }
 
   // Get dishes by category
-  async getDishes(category: string, userId: string): Promise<Dish[]> {
-    // Make sure we have dishes initialized
-    if (this.dishes.length === 0) {
-      this.initializeDishes();
-    }
-    
+  async getDishes(category: string, userId: string, userPreferences?: DietaryPreferences): Promise<Dish[]> {
     // Get user or create if not exists
     let user = this.users[userId];
     if (!user) {
@@ -878,11 +181,71 @@ class MockDatabase {
     }
     
     // Filter dishes by category
-    const categoryDishes = this.dishes.filter(
+    let categoryDishes = this.dishes.filter(
       (dish) => dish.category.toLowerCase() === category.toLowerCase()
     );
     
-    // Return all dishes for this category
+    // If user preferences are provided, filter dishes based on preferences
+    if (userPreferences) {
+      // Filter by vegetarian preference
+      if (userPreferences.isVegetarian) {
+        categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
+      }
+      
+      // Filter by diet type
+      if (userPreferences.dietType) {
+        switch (userPreferences.dietType) {
+          case "pure-veg":
+            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
+            break;
+          case "egg-veg":
+            // Allow egg dishes (which would be marked as Veg in our data)
+            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
+            break;
+          case "vegan":
+            // For simplicity, we'll just use Veg since we don't have vegan flag
+            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
+            break;
+          case "jain":
+            // For Jain, we'd need more detailed data, but for now just use Veg
+            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
+            break;
+          case "sattvic":
+            // For Sattvic, we'd need more detailed data, but for now just use Veg
+            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
+            break;
+          case "non-veg":
+            // Allow all dishes, no filtering needed
+            break;
+          case "flexible":
+            // Allow all dishes, no filtering needed
+            break;
+        }
+      }
+      
+      // Filter out dishes with avoided ingredients
+      // This is a simple implementation - in a real app, we'd have ingredient lists for each dish
+      if (userPreferences.avoidances && userPreferences.avoidances.length > 0) {
+        categoryDishes = categoryDishes.filter(dish => {
+          // Check if dish name contains any avoided ingredient
+          return !userPreferences.avoidances.some((avoidance: string) => 
+            dish.name.toLowerCase().includes(avoidance.toLowerCase())
+          );
+        });
+      }
+      
+      // Prioritize dishes based on health tags
+      if (userPreferences.healthTags && userPreferences.healthTags.includes("fitness")) {
+        // Sort healthy dishes first
+        categoryDishes.sort((a, b) => {
+          if (a.is_healthy && !b.is_healthy) return -1;
+          if (!a.is_healthy && b.is_healthy) return 1;
+          return 0;
+        });
+      }
+    }
+    
+    // Return filtered dishes for this category
     return categoryDishes;
   }
 

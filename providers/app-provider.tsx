@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useToast } from "@/hooks/use-toast"
-import { mockDB, type Dish, type Menu } from "@/lib/mock-data"
+import { mockDB, type Menu } from "@/lib/mock-data"
+import type { Dish } from "@/lib/types/dish-types"
 import { firestoreService } from "@/lib/firestore-service"
 import { getUserId, saveUserId, saveMenuToStorage, getUserName, saveUserName, hasUserName, getUserPreferences, saveUserPreferences } from "@/lib/local-storage"
 import { isFirebasePermissionError } from "@/lib/firebase"
@@ -32,6 +33,7 @@ interface User {
   uid: string;
   name?: string;
   dietaryPreferences?: DietaryPreferences;
+  favorites?: string[]; // Add favorites array to store dish IDs
 }
 
 interface AppContextType {
@@ -49,6 +51,7 @@ interface AppContextType {
   getMenuParticipants: (menuId: string) => Promise<string[]>
   deleteMenu: (menuId: string) => Promise<boolean>
   removeDishFromShortlist: (dish: Dish, category: string) => Promise<boolean>
+  updateUser: (user: User) => void // Add updateUser method
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -70,6 +73,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         let userId = getUserId();
         let userName = getUserName();
         let userPreferences = getUserPreferences();
+        let userFavorites = localStorage.getItem('userFavorites');
         
         console.log("AppProvider: Retrieved from localStorage - userId:", userId ? "exists" : "not found", "userName:", userName ? "exists" : "not found");
         
@@ -83,7 +87,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setUser({ 
           uid: userId, 
           name: userName || undefined,
-          dietaryPreferences: userPreferences || undefined
+          dietaryPreferences: userPreferences || undefined,
+          favorites: userFavorites ? JSON.parse(userFavorites) : []
         })
         setHasSetName(!!userName)
         console.log("AppProvider: Set user state with userId:", userId, "hasSetName:", !!userName);
@@ -413,8 +418,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await mockDB.createUser(user.uid);
       }
       
-      // Get dishes for this category
-      const dishes = await mockDB.getDishes(category, user.uid);
+      // Get dishes for this category, passing user preferences if available
+      const dishes = await mockDB.getDishes(
+        category, 
+        user.uid, 
+        user.dietaryPreferences
+      );
+      
       return dishes;
     } catch (error) {
       console.error("Error fetching dishes:", error);
@@ -495,6 +505,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Add updateUser function to the provider
+  const updateUser = (updatedUser: User) => {
+    if (!user) return;
+    setUser(updatedUser);
+    
+    // Save favorites to localStorage if they've changed
+    if (updatedUser.favorites && (!user.favorites || 
+        JSON.stringify(updatedUser.favorites) !== JSON.stringify(user.favorites))) {
+      localStorage.setItem('userFavorites', JSON.stringify(updatedUser.favorites));
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -511,7 +533,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         updateUserProfile,
         getMenuParticipants,
         deleteMenu,
-        removeDishFromShortlist
+        removeDishFromShortlist,
+        updateUser
       }}
     >
       {children}

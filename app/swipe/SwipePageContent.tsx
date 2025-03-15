@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useApp } from "@/providers/app-provider"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Dish } from "@/lib/mock-data"
+import type { Dish } from "@/lib/types/dish-types"
 import DishStack from "./DishStack"
 import SwipeControls from "./SwipeControls"
 import { UserNameForm } from "@/components/user-name-form"
@@ -32,7 +32,7 @@ import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 
 const SwipePageContent = () => {
-  const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName, removeDishFromShortlist } = useApp()
+  const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName, removeDishFromShortlist, user } = useApp()
   const [currentCategory, setCurrentCategory] = useState<string>("breakfast")
   const [currentDishes, setCurrentDishes] = useState<Dish[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -334,6 +334,92 @@ const SwipePageContent = () => {
     }
   }, [activeMenu, toast, isRemovingDish, removeDishFromShortlist]);
 
+  // Calculate how well a dish matches user preferences
+  const calculateMatchScore = (dish: Dish, userPreferences: any): { score: number; matchReasons: string[] } => {
+    let score = 0;
+    const matchReasons: string[] = [];
+    
+    // Base score is 50% - every dish starts here
+    score = 50;
+    
+    // Check vegetarian preference
+    if (userPreferences?.isVegetarian && dish.preference === "Veg") {
+      score += 10;
+      matchReasons.push("Vegetarian");
+    }
+    
+    // Check health preference
+    if (userPreferences?.healthTags?.includes("fitness") && dish.is_healthy) {
+      score += 10;
+      matchReasons.push("Healthy option");
+    }
+    
+    // Check if dish matches cuisine preferences
+    if (userPreferences?.cuisinePreferences?.length > 0 && dish.cuisines) {
+      for (const cuisine of userPreferences.cuisinePreferences) {
+        if (dish.cuisines.some((c: string) => c.toLowerCase().includes(cuisine.toLowerCase()))) {
+          score += 15;
+          matchReasons.push(`${cuisine} cuisine`);
+          break; // Only count once
+        }
+      }
+    }
+    
+    // Check if dish contains preferred proteins
+    if (userPreferences?.proteinPreferences?.length > 0 && dish.protein_source) {
+      for (const protein of userPreferences.proteinPreferences) {
+        if (dish.protein_source.toLowerCase().includes(protein.toLowerCase())) {
+          score += 15;
+          matchReasons.push(`Contains ${protein}`);
+          break; // Only count once
+        }
+      }
+    }
+    
+    // Check if dish contains any specific preferences in ingredients
+    if (userPreferences?.specificPreferences?.length > 0 && dish.ingredients) {
+      for (const pref of userPreferences.specificPreferences) {
+        if (dish.ingredients.some((ingredient: string) => ingredient.toLowerCase().includes(pref.toLowerCase()))) {
+          score += 10;
+          matchReasons.push(`Contains ${pref}`);
+          break; // Only count once
+        }
+      }
+    }
+    
+    // Check if dish contains any avoided ingredients (negative score)
+    if (userPreferences?.avoidances?.length > 0 && dish.ingredients) {
+      for (const avoidance of userPreferences.avoidances) {
+        if (dish.ingredients.some((ingredient: string) => ingredient.toLowerCase().includes(avoidance.toLowerCase()))) {
+          score -= 30; // Big penalty for containing avoided ingredients
+          matchReasons.push(`Contains avoided ingredient: ${avoidance}`);
+          break; // Only count once
+        }
+      }
+    }
+    
+    // Check for dietary tags match
+    if (userPreferences?.healthTags?.length > 0 && dish.dietary_tags) {
+      for (const tag of userPreferences.healthTags) {
+        if (dish.dietary_tags.some((dt: string) => dt.toLowerCase().includes(tag.toLowerCase()))) {
+          score += 10;
+          matchReasons.push(`Matches health goal: ${tag}`);
+          break; // Only count once
+        }
+      }
+    }
+    
+    // Bonus for dishes that match multiple criteria
+    if (matchReasons.length > 2) {
+      score += 5;
+    }
+    
+    // Cap score between 0 and 100
+    score = Math.max(0, Math.min(100, score));
+    
+    return { score, matchReasons };
+  };
+
   if (!hasSetName) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -373,41 +459,58 @@ const SwipePageContent = () => {
                           <div key={category} className="space-y-2">
                             <h3 className="font-medium capitalize">{category}</h3>
                             <div className="space-y-2">
-                              {dishes.map((dish: Dish) => (
-                                <div key={dish.dish_id} className="flex items-center p-2 rounded-lg border group hover:border-primary hover:bg-primary/5 transition-colors">
-                                  <div className="relative h-12 w-12 rounded overflow-hidden mr-3">
-                                    <Image
-                                      src={dish.image_url || "/placeholder.svg?height=48&width=48"}
-                                      alt={dish.name}
-                                      fill
-                                      className="object-cover"
-                                    />
-                                  </div>
-                                  <div className="flex-1">
-                                    <p className="font-medium">{dish.name}</p>
-                                    <div className="flex items-center space-x-2 mt-1">
-                                      <Badge variant="outline" className="text-xs">
-                                        {dish.preference}
-                                      </Badge>
-                                      {dish.is_healthy && (
-                                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                                          Healthy
+                              {dishes.map((dish: Dish) => {
+                                const { score, matchReasons } = user?.dietaryPreferences 
+                                  ? calculateMatchScore(dish, user.dietaryPreferences) 
+                                  : { score: 50, matchReasons: ["Basic match"] };
+                                
+                                return (
+                                  <div key={dish.dish_id} className="flex items-center p-2 rounded-lg border group hover:border-primary hover:bg-primary/5 transition-colors">
+                                    <div className="relative h-12 w-12 rounded overflow-hidden mr-3">
+                                      <Image
+                                        src={dish.image_url || "/placeholder.svg?height=48&width=48"}
+                                        alt={dish.name}
+                                        fill
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="flex items-center justify-between">
+                                        <p className="font-medium">{dish.name}</p>
+                                        <div className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                          {score}% match
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center space-x-2 mt-1">
+                                        <Badge variant="outline" className="text-xs">
+                                          {dish.preference}
                                         </Badge>
+                                        {dish.is_healthy && (
+                                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                                            Healthy
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {matchReasons.length > 0 && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {matchReasons.slice(0, 2).join(", ")}
+                                          {matchReasons.length > 2 && "..."}
+                                        </p>
                                       )}
                                     </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => handleRemoveDish(dish, category)}
+                                      disabled={isRemovingDish}
+                                      title="Remove from shortlist"
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
                                   </div>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={() => handleRemoveDish(dish, category)}
-                                    disabled={isRemovingDish}
-                                    title="Remove from shortlist"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -516,6 +619,7 @@ const SwipePageContent = () => {
                   onRefresh={() => setShouldLoadDishes(true)}
                   showLikeAnimation={showLikeAnimation && currentCategory === category}
                   lastLikedDish={lastLikedDish}
+                  userPreferences={user?.dietaryPreferences}
                 />
               )}
             </TabsContent>

@@ -13,7 +13,7 @@ interface StoredMenu {
   created_at: number; // timestamp
 }
 
-interface DietaryPreferences {
+export interface DietaryPreferences {
   isVegetarian: boolean;
   dietType?: string;
   region?: string;

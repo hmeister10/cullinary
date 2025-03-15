@@ -56,6 +56,14 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+      container: {
+        center: true,
+        padding: {
+          DEFAULT: '1rem',
+          sm: '2rem',
+          lg: '4rem',
+        },
+      },
       keyframes: {
         "fadeIn": {
           "0%": { opacity: "0", transform: "translateY(10px)" },
