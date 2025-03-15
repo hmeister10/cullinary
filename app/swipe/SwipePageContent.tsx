@@ -122,7 +122,7 @@ const SwipePageContent = () => {
       setIsLoading(false);
       setShouldLoadDishes(false);
     }
-  }, [fetchDishesToSwipe, currentCategory, toast, activeMenu]);
+  }, [fetchDishesToSwipe, currentCategory, toast, activeMenu, isLoading]);
 
   // Fix the initial loading state issue
   useEffect(() => {
@@ -158,7 +158,7 @@ const SwipePageContent = () => {
         loadDishes();
       }, 100);
     }
-  }, [activeMenu, hasSetName]);
+  }, [activeMenu, hasSetName, loadDishes]);
 
   // Handle dish loading - ensure this runs when shouldLoadDishes changes
   useEffect(() => {

@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { PlusCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { PlusCircle, ChevronDown } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 // Define the dietary preferences interface
@@ -107,11 +107,6 @@ export function DetailedProfile({ initialPreferences, onSave, isSaving, initialN
     "Coconut", "Tomatoes", "Brinjal (Baingan)", "Okra (Bhindi)", 
     "Bitter Gourd (Karela)", "Bottle Gourd (Lauki)", "Pumpkin (Kaddu)",
     "Leafy Greens", "Raw Vegetables", "Mushrooms"
-  ]
-
-  // Days of the week
-  const daysOfWeek = [
-    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
   ]
 
   // Religious and cultural dietary practices
@@ -333,8 +328,8 @@ export function DetailedProfile({ initialPreferences, onSave, isSaving, initialN
     )
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault()
     onSave({
       ...preferences,
       name
@@ -517,7 +512,7 @@ export function DetailedProfile({ initialPreferences, onSave, isSaving, initialN
                             preferences.occasionBasedDiet.days.includes(day) || 
                             preferences.occasionBasedDiet.festivals.includes(day)
                           }
-                          onCheckedChange={(checked) => {
+                          onCheckedChange={() => {
                             if (["Monday", "Tuesday", "Thursday", "Saturday", "Ekadashi", "Purnima", "Amavasya"].includes(day)) {
                               toggleDay(day);
                             } else {
@@ -712,7 +707,7 @@ export function DetailedProfile({ initialPreferences, onSave, isSaving, initialN
                     />
                     <Button 
                       type="button"
-                      onClick={(e) => {
+                      onClick={() => {
                         const input = document.getElementById('custom-reason') as HTMLInputElement
                         addCustomDietaryReason(input.value)
                         input.value = ''
@@ -812,7 +807,7 @@ export function DetailedProfile({ initialPreferences, onSave, isSaving, initialN
                   />
                   <Button 
                     type="button"
-                    onClick={(e) => {
+                    onClick={() => {
                       const input = document.getElementById('preference') as HTMLInputElement
                       addSpecificPreference(input.value)
                       input.value = ''
@@ -911,7 +906,7 @@ export function DetailedProfile({ initialPreferences, onSave, isSaving, initialN
                   />
                   <Button 
                     type="button"
-                    onClick={(e) => {
+                    onClick={() => {
                       const input = document.getElementById('avoidance') as HTMLInputElement
                       addAvoidance(input.value)
                       input.value = ''

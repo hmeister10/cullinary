@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Check, ChevronRight } from "lucide-react"
+import { Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 // Define the total number of steps in the setup process
@@ -49,8 +49,16 @@ const commonAvoidances = [
   { id: "gluten", name: "Gluten" },
 ]
 
+interface QuickSetupPreferences {
+  name: string;
+  dietType: string;
+  region: string;
+  healthTags: string[];
+  avoidances: string[];
+}
+
 interface QuickSetupProps {
-  onComplete: (preferences: any) => void;
+  onComplete: (preferences: QuickSetupPreferences) => void;
   onSkip: () => void;
   initialName?: string;
   initialStep?: number;
@@ -147,7 +155,7 @@ export function QuickSetup({ onComplete, onSkip, initialName = "", initialStep =
               Welcome to Cullinary
             </CardTitle>
             <CardDescription className="text-base mt-2">
-              Don't ever worry about "What do you want to eat?" again!
+              Don&apos;t ever worry about &quot;What do you want to eat?&quot; again!
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center gap-4 pt-0 pb-4">
@@ -189,7 +197,7 @@ export function QuickSetup({ onComplete, onSkip, initialName = "", initialStep =
         <Card className="border-2 border-primary/20 shadow-lg relative z-10 animate-fadeIn">
           <CardHeader>
             <ProgressIndicator currentStep={2} />
-            <CardTitle>What's your diet type?</CardTitle>
+            <CardTitle>What&apos;s your diet type?</CardTitle>
             <CardDescription>
               Select the option that best describes your eating habits.
             </CardDescription>
@@ -402,7 +410,7 @@ export function QuickSetup({ onComplete, onSkip, initialName = "", initialStep =
               <div>
                 <CardTitle>Almost done, {preferences.name}!</CardTitle>
                 <CardDescription>
-                  Here's a summary of your preferences
+                  Here&apos;s a summary of your preferences
                 </CardDescription>
               </div>
             </div>

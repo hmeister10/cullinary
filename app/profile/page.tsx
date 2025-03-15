@@ -67,7 +67,19 @@ export default function ProfilePage() {
   }, [user])
 
   // Handle quick setup completion
-  const handleQuickSetupComplete = (quickPreferences: any) => {
+  const handleQuickSetupComplete = (quickPreferences: {
+    name: string;
+    dietType: string;
+    region: string;
+    healthTags: string[];
+    avoidances: string[];
+    occasionBasedDiet?: {
+      enabled?: boolean;
+      days?: string[];
+      festivals?: string[];
+      other?: string[];
+    };
+  }) => {
     // Map quick setup preferences to our format
     const mappedPreferences: Partial<DietaryPreferences> = {
       ...preferences,

@@ -6,7 +6,7 @@ import "@/app/globals.css"
 
 export const metadata = {
   title: 'Cullinary - Your Food Companion',
-  description: 'Don\'t ever worry about "What do you want to eat?" again!',
+  description: 'Don&apos;t ever worry about "What do you want to eat?" again!',
 }
 
 export default function RootLayout({

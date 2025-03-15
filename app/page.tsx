@@ -7,9 +7,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { getStoredMenus, removeMenuFromStorage } from "@/lib/local-storage"
 import { format } from "date-fns"
-import { Calendar, Clock, Trash2, ChevronRight } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Calendar, Clock, Trash2 } from "lucide-react"
 import { useApp } from "@/providers/app-provider"
 import { Header } from "@/components/header"
 import { QuickSetup } from "./profile/components/QuickSetup"
@@ -33,14 +31,20 @@ interface StoredMenu {
   created_at: number;
 }
 
+// Define a simpler interface for QuickSetup preferences
+interface QuickSetupPreferences {
+  name: string;
+  dietType: string;
+  region: string;
+  healthTags: string[];
+  avoidances: string[];
+}
+
 export default function Home() {
-  const { loading, hasSetName, deleteMenu, setUserName, updateUserProfile } = useApp()
+  const { loading, hasSetName, deleteMenu, updateUserProfile } = useApp()
   const [recentMenus, setRecentMenus] = useState<StoredMenu[]>([])
   const [menuToDelete, setMenuToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [name, setName] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showQuickSetup, setShowQuickSetup] = useState(false)
   const { toast } = useToast()
 
   // Load menus from localStorage on client side
@@ -51,37 +55,8 @@ export default function Home() {
     }
   }, [loading, hasSetName])
 
-  // Handle name submission
-  const handleNameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!name.trim()) return
-    
-    setIsSubmitting(true)
-    
-    try {
-      // Save the name first
-      await setUserName(name.trim())
-      
-      // Then show the quick setup
-      setShowQuickSetup(true)
-      
-      // Log for debugging
-      console.log("Name saved, showing quick setup:", name)
-    } catch (error) {
-      console.error("Error setting user name:", error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to save your name. Please try again.",
-      })
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   // Handle quick setup completion
-  const handleQuickSetupComplete = async (quickPreferences: any) => {
+  const handleQuickSetupComplete = async (quickPreferences: QuickSetupPreferences) => {
     console.log("Quick setup completed with preferences:", quickPreferences)
     
     // Map quick setup preferences to our format
@@ -105,7 +80,7 @@ export default function Home() {
     try {
       // Update user profile with preferences
       await updateUserProfile({
-        name: quickPreferences.name || name,
+        name: quickPreferences.name,
         dietaryPreferences: mappedPreferences
       })
       
@@ -214,7 +189,7 @@ export default function Home() {
           <QuickSetup 
             onComplete={handleQuickSetupComplete}
             onSkip={() => window.location.reload()}
-            initialName={name}
+            initialName=""
             initialStep={1}
           />
         </div>
