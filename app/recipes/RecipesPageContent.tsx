@@ -10,6 +10,7 @@ import { ScrollToTopButton } from "./components/ScrollToTopButton"
 import { Button } from "@/components/ui/button"
 import { useApiInfiniteScroll } from "./hooks/useApiInfiniteScroll"
 import { useFavorites } from "@/lib/hooks/use-favorites"
+import { SkeletonGrid } from "./components/SkeletonGrid"
 
 type FilterCategory = "All" | MealCategory | "Vegetarian" | "Non-Veg" | "Indian" | "Spicy" | "Quick"
 
@@ -56,7 +57,8 @@ export default function RecipesPageContent() {
     loaderRef,
     handleLoadMore,
     refresh,
-    totalItems
+    totalItems,
+    isInitialLoad
   } = useApiInfiniteScroll({
     category,
     preference,
@@ -67,8 +69,10 @@ export default function RecipesPageContent() {
 
   // Handle search action
   const handleSearch = useCallback(() => {
-    refresh();
-  }, [refresh]);
+    if (!isLoading) {
+      refresh();
+    }
+  }, [refresh, isLoading]);
 
   // Reset all filters with animation
   const resetFilters = useCallback(() => {
@@ -104,10 +108,21 @@ export default function RecipesPageContent() {
         />
 
         {/* Loading state for initial load */}
-        {isLoading && dishes.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="animate-pulse text-muted-foreground">Loading recipes...</div>
-          </div>
+        {isLoading && isInitialLoad ? (
+          <>
+            {/* Results count skeleton */}
+            <motion.div 
+              className="text-center text-muted-foreground"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="h-5 w-32 bg-muted/60 rounded-full mx-auto animate-pulse" />
+            </motion.div>
+            
+            {/* Skeleton grid for loading state */}
+            <SkeletonGrid count={12} />
+          </>
         ) : (
           <>
             {/* Results count with animation */}

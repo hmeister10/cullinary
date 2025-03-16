@@ -5,7 +5,7 @@ import { RecipeCard } from "./RecipeCard"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2 } from "lucide-react"
-import { RefObject } from "react"
+import { RefObject, useMemo, useEffect } from "react"
 
 interface RecipeGridProps {
   dishes: Dish[]
@@ -26,8 +26,43 @@ export function RecipeGrid({
   onToggleFavorite,
   isFavorite
 }: RecipeGridProps) {
+  // Log props for debugging
+  useEffect(() => {
+    console.log('RecipeGrid props:', { 
+      dishCount: dishes.length, 
+      isLoading, 
+      hasMore, 
+      loaderRefExists: !!loaderRef.current 
+    });
+  }, [dishes.length, isLoading, hasMore, loaderRef]);
+
+  // Create a map of dish IDs to ensure uniqueness
+  const dishMap = useMemo(() => {
+    const map = new Map<string, Dish>();
+    dishes.forEach(dish => {
+      // If we already have this dish ID, append a unique suffix
+      if (map.has(dish.dish_id)) {
+        // Create a unique key by adding an index
+        let uniqueId = `${dish.dish_id}_${Math.random().toString(36).substring(2, 9)}`;
+        map.set(uniqueId, {...dish, dish_id: uniqueId});
+      } else {
+        map.set(dish.dish_id, dish);
+      }
+    });
+    return map;
+  }, [dishes]);
+
+  // Convert map back to array
+  const uniqueDishes = useMemo(() => Array.from(dishMap.values()), [dishMap]);
+
+  // Handle load more button click
+  const handleLoadMore = () => {
+    console.log('Load more button clicked');
+    onLoadMore();
+  };
+
   // If no dishes found
-  if (dishes.length === 0 && !isLoading) {
+  if (uniqueDishes.length === 0 && !isLoading) {
     return (
       <motion.div 
         className="text-center py-12"
@@ -55,7 +90,7 @@ export function RecipeGrid({
     <div className="space-y-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         <AnimatePresence>
-          {dishes.map((dish, index) => (
+          {uniqueDishes.map((dish, index) => (
             <RecipeCard 
               key={dish.dish_id} 
               dish={dish} 
@@ -68,7 +103,7 @@ export function RecipeGrid({
       </div>
 
       {/* Loader for infinite scrolling */}
-      <div ref={loaderRef} className="flex justify-center py-8">
+      <div ref={loaderRef} className="flex justify-center py-8" id="recipe-loader">
         {isLoading && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -81,7 +116,7 @@ export function RecipeGrid({
         
         {!isLoading && hasMore && (
           <Button 
-            onClick={onLoadMore} 
+            onClick={handleLoadMore} 
             variant="outline"
             className="rounded-full px-6"
           >
@@ -89,7 +124,7 @@ export function RecipeGrid({
           </Button>
         )}
         
-        {!hasMore && dishes.length > 0 && (
+        {!hasMore && uniqueDishes.length > 0 && (
           <motion.p 
             className="text-muted-foreground text-sm"
             initial={{ opacity: 0 }}

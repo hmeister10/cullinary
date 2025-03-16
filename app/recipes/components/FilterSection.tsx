@@ -6,7 +6,7 @@ import { Search } from "lucide-react"
 import { FilterButton } from "./FilterButton"
 import { motion } from "framer-motion"
 import type { MealCategory } from "@/lib/types/dish-types"
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 type FilterCategory = "All" | MealCategory | "Vegetarian" | "Non-Veg" | "Indian" | "Spicy" | "Quick"
 
@@ -27,6 +27,13 @@ export function FilterSection({
 }: FilterSectionProps) {
   // Use a ref to track if this is the initial render
   const isInitialMount = useRef(true);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+  
+  // Update local search query when prop changes
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
   
   const container = {
     hidden: { opacity: 0 },
@@ -53,18 +60,48 @@ export function FilterSection({
     
     // Only trigger search if onSearch is provided
     if (onSearch) {
-      onSearch();
+      // Use a timeout to prevent immediate execution
+      const timer = setTimeout(() => {
+        onSearch();
+      }, 100); // Add a small delay
+      
+      return () => clearTimeout(timer);
     }
   }, [activeFilter, onSearch]);
 
-  // Handle search input
+  // Handle search input with debounce
   const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
+    setLocalSearchQuery(value);
+    
+    // Clear any existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    
+    // Set a new timeout for the search
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchQuery(value);
+      if (onSearch && value !== searchQuery) {
+        onSearch();
+      }
+    }, 500); // 500ms debounce
   };
 
   // Handle search submit
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Clear any existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
+    
+    // Update the search query immediately
+    if (localSearchQuery !== searchQuery) {
+      setSearchQuery(localSearchQuery);
+    }
+    
     if (onSearch) {
       onSearch();
     }
@@ -76,6 +113,15 @@ export function FilterSection({
       setActiveFilter(filter);
     }
   };
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -92,15 +138,16 @@ export function FilterSection({
           type="search" 
           placeholder="Search recipes, ingredients, cuisines..." 
           className="w-full pl-12 py-6 text-lg rounded-full border-2 focus-visible:ring-offset-0"
-          value={searchQuery}
+          value={localSearchQuery}
           onChange={(e) => handleSearchChange(e.target.value)}
         />
-        {searchQuery && (
+        {localSearchQuery && (
           <Button 
             variant="ghost" 
             size="sm" 
             className="absolute right-4 top-1/2 transform -translate-y-1/2 h-8 w-8 rounded-full p-0"
             onClick={() => {
+              setLocalSearchQuery("");
               setSearchQuery("");
               if (onSearch) onSearch();
             }}
