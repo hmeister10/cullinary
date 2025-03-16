@@ -85,32 +85,29 @@ const SwipePageContent = () => {
     }
   }, [joinMenu, toast, router, isJoining])
 
-  const loadDishes = useCallback(async () => {
-    console.log("loadDishes called, isLoading:", isLoading);
-    
-    // Force loading state to true
-    setIsLoading(true);
+  // Simplified loadDishes function without isLoading dependency
+  const loadDishes = useCallback(async (category: string) => {
+    console.log("Loading dishes for category:", category);
     
     try {
-      console.log("Loading dishes for category:", currentCategory);
-      console.log("Active menu:", activeMenu ? activeMenu.menu_id : 'none');
-      
       // Ensure we have a user before trying to fetch dishes
       if (!activeMenu) {
         console.error("No active menu, cannot load dishes");
-        setCurrentDishes([]);
-        return;
+        return [];
       }
       
-      const dishes = await fetchDishesToSwipe(currentCategory);
-      console.log("Dishes loaded:", dishes.length);
+      setIsLoading(true);
       
-      if (dishes.length > 0) {
-        console.log("Updating dishes state with new dishes");
-        setCurrentDishes(dishes);
-      } else {
-        console.log("No dishes returned, keeping current dishes");
+      // Use the new dishes API
+      const apiUrl = `/api/dishes?category=${category}&limit=20`;
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch dishes: ${response.statusText}`);
       }
+      
+      const data = await response.json();
+      return data.dishes;
     } catch (error) {
       console.error("Error loading dishes:", error);
       toast({
@@ -118,64 +115,66 @@ const SwipePageContent = () => {
         title: "Error",
         description: "Failed to load dishes. Please try again.",
       });
+      return [];
     } finally {
       setIsLoading(false);
-      setShouldLoadDishes(false);
     }
-  }, [fetchDishesToSwipe, currentCategory, toast, activeMenu, isLoading]);
+  }, [activeMenu, toast]);
 
-  // Fix the initial loading state issue
+  // Single useEffect to handle initialization and category changes
   useEffect(() => {
-    // Set initial loading state to false if it's already been initialized
-    if (hasInitializedRef.current && isLoading) {
-      setIsLoading(false);
-    }
-  }, [isLoading]);
-
-  // Handle menu initialization
-  useEffect(() => {
-    if (!hasSetName || hasInitializedRef.current) return;
+    // Skip if user hasn't set name
+    if (!hasSetName) return;
     
-    if (menuId && !activeMenu && !isJoining) {
+    // Handle menu joining from URL
+    if (menuId && !activeMenu && !isJoining && !hasInitializedRef.current) {
       joinMenuFromUrl(menuId);
-    } else if (!activeMenu) {
+      hasInitializedRef.current = true;
+      return;
+    }
+    
+    // Redirect if no active menu
+    if (!activeMenu && hasInitializedRef.current) {
       router.push("/");
       return;
     }
     
-    // Set shouldLoadDishes to true to trigger initial load
-    setShouldLoadDishes(true);
-    hasInitializedRef.current = true;
-  }, [hasSetName, menuId, activeMenu, isJoining, joinMenuFromUrl, router]);
-
-  // Force load dishes after component mounts and menu is ready
-  useEffect(() => {
-    if (activeMenu && hasSetName) {
-      // Force isLoading to false to ensure loadDishes can run
-      setIsLoading(false);
-      // Small timeout to ensure state is updated
-      setTimeout(() => {
-        loadDishes();
-      }, 100);
+    // Load dishes when category changes or on initial load
+    if (activeMenu) {
+      console.log("Loading dishes for category:", currentCategory);
+      setCurrentDishes([]); // Clear current dishes
+      
+      // Load dishes for the current category
+      loadDishes(currentCategory).then(dishes => {
+        if (dishes && dishes.length > 0) {
+          setCurrentDishes(dishes);
+        }
+      });
+      
+      // Mark as initialized if not already
+      if (!hasInitializedRef.current) {
+        hasInitializedRef.current = true;
+      }
     }
-  }, [activeMenu, hasSetName, loadDishes]);
+  }, [
+    hasSetName, 
+    menuId, 
+    activeMenu, 
+    isJoining, 
+    currentCategory, 
+    joinMenuFromUrl, 
+    router, 
+    loadDishes
+  ]);
 
-  // Handle dish loading - ensure this runs when shouldLoadDishes changes
-  useEffect(() => {
-    if (!hasSetName || !activeMenu) return;
-    
-    if (shouldLoadDishes) {
-      loadDishes();
-    }
-  }, [hasSetName, activeMenu, shouldLoadDishes, loadDishes]);
-
-  // Handle category changes - ensure dishes are loaded when category changes
-  useEffect(() => {
-    if (hasSetName && activeMenu && hasInitializedRef.current) {
-      console.log("Category changed to:", currentCategory);
-      setShouldLoadDishes(true);
-    }
-  }, [currentCategory, hasSetName, activeMenu]);
+  // Handle refresh button click
+  const handleRefresh = useCallback(() => {
+    loadDishes(currentCategory).then(dishes => {
+      if (dishes && dishes.length > 0) {
+        setCurrentDishes(dishes);
+      }
+    });
+  }, [currentCategory, loadDishes]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -218,9 +217,9 @@ const SwipePageContent = () => {
       setCurrentDishes(prev => {
         const newDishes = prev.filter((d) => d.dish_id !== dish.dish_id);
         
-        // If dishes are running low, trigger a load
+        // If dishes are running low, load more
         if (newDishes.length <= 2) {
-          setShouldLoadDishes(true);
+          handleRefresh();
         }
         
         return newDishes;
@@ -233,7 +232,7 @@ const SwipePageContent = () => {
         description: "Failed to process your choice. Please try again.",
       })
     }
-  }, [swipeOnDish, toast]);
+  }, [swipeOnDish, toast, handleRefresh]);
 
   const calculateProgress = useCallback(() => {
     if (!activeMenu) return 0
@@ -609,14 +608,14 @@ const SwipePageContent = () => {
               ) : currentDishes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full space-y-4">
                   <p>No dishes available.</p>
-                  <Button onClick={() => setShouldLoadDishes(true)}>Refresh</Button>
+                  <Button onClick={handleRefresh}>Refresh</Button>
                 </div>
               ) : (
                 <DishStack 
                   dishes={currentDishes}
                   onSwipe={handleSwipe}
                   isLoading={isLoading}
-                  onRefresh={() => setShouldLoadDishes(true)}
+                  onRefresh={handleRefresh}
                   showLikeAnimation={showLikeAnimation && currentCategory === category}
                   lastLikedDish={lastLikedDish}
                   userPreferences={user?.dietaryPreferences}

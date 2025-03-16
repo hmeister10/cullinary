@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-type MenuTileIconType = "create-menu" | "join-menu" | "recipe-collection";
+type MenuTileIconType = "create-menu" | "join-menu" | "recipe-collection" | "browse-recipes";
 
 interface MenuTileIconProps {
   type: MenuTileIconType;
@@ -16,6 +16,7 @@ export function MenuTileIcon({ type, className, size = 120 }: MenuTileIconProps)
     "create-menu": "/assets/icons/create-menu-icon.svg",
     "join-menu": "/assets/icons/join-menu-icon.svg",
     "recipe-collection": "/assets/icons/recipe-collection-icon.svg",
+    "browse-recipes": "/assets/icons/recipe-collection-icon.svg", // Reusing the same icon for now
   };
 
   return (

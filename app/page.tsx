@@ -42,7 +42,7 @@ interface QuickSetupPreferences {
   avoidances: string[];
 }
 
-export default function Home() {
+export default function HomePage() {
   const { loading, hasSetName, deleteMenu, updateUserProfile } = useApp()
   const [recentMenus, setRecentMenus] = useState<StoredMenu[]>([])
   const [menuToDelete, setMenuToDelete] = useState<string | null>(null)
@@ -225,7 +225,7 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
       
-      <Header title="Menu Maker" />
+      <Header title="Cullinary" />
       <main className="flex-1">
         <section className="container grid items-center justify-center gap-8 py-8 md:py-12 px-4 sm:px-8">
           <div className="flex max-w-[980px] w-full flex-col items-center gap-6 text-center mx-auto">
@@ -248,11 +248,6 @@ export default function Home() {
               description="Start a new menu and invite your partner"
               iconType="create-menu"
               onClick={() => router.push('/create')}
-              actionButton={
-                <Button className="w-full" onClick={() => router.push('/create')}>
-                  Create New Menu
-                </Button>
-              }
             />
             
             <MenuTile
@@ -260,68 +255,80 @@ export default function Home() {
               description="Join an existing menu with a code"
               iconType="join-menu"
               onClick={() => router.push('/join')}
-              actionButton={
-                <Button className="w-full" variant="outline" onClick={() => router.push('/join')}>
-                  Enter Menu Code
-                </Button>
-              }
             />
             
             <MenuTile
-              title="Recipe Collection"
-              description="Discover our curated recipe collection"
-              iconType="recipe-collection"
+              title="Browse Recipes"
+              description="Explore our collection of recipes"
+              iconType="browse-recipes"
               onClick={() => router.push('/recipes')}
-              actionButton={
-                <Button className="w-full" variant="secondary" onClick={() => router.push('/recipes')}>
-                  Browse Recipes
-                </Button>
-              }
             />
           </div>
           
-          {recentMenus.length > 0 && (
-            <div className="w-full max-w-4xl mx-auto mt-12">
-              <h2 className="text-2xl font-bold mb-6 flex items-center">
-                <span className="w-1.5 h-6 bg-primary rounded-full mr-2 inline-block"></span>
-                Your Recent Menus
-              </h2>
+          {/* Recent Menus Section */}
+          <div className="w-full max-w-4xl mx-auto mt-8">
+            <h2 className="text-2xl font-bold mb-6">Recent Menus</h2>
+            
+            {recentMenus.length > 0 ? (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {recentMenus.map((menu) => (
-                  <Card key={menu.menu_id} className="overflow-hidden border-none shadow-md hover:shadow-lg transition-shadow">
-                    <CardHeader className="p-4 bg-muted/50">
-                      <CardTitle className="text-lg">{menu.name}</CardTitle>
-                      <CardDescription className="flex items-center mt-1">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {format(new Date(menu.start_date), "MMM d")} - {format(new Date(menu.end_date), "MMM d, yyyy")}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4 mr-1" />
+                  <Link href={`/menu/${menu.menu_id}`} key={menu.menu_id} className="block group">
+                    <Card className="h-full transition-all hover:shadow-md">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                          {menu.name}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-1">
+                          <Calendar className="h-3.5 w-3.5" />
+                          {format(new Date(menu.start_date), "MMM d")} - {format(new Date(menu.end_date), "MMM d, yyyy")}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-2">
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
                           Created {format(new Date(menu.created_at), "MMM d, yyyy")}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      </CardContent>
+                      <CardFooter className="flex justify-between">
+                        <Button variant="outline" size="sm" className="group-hover:bg-primary/10 transition-colors">
+                          View Menu
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-muted-foreground hover:text-destructive"
                           onClick={(e) => handleDeleteMenu(menu.menu_id, e)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="p-4 pt-0">
-                      <Link href={`/menu/${menu.menu_id}`} className="w-full">
-                        <Button variant="outline" className="w-full">View Menu</Button>
-                      </Link>
-                    </CardFooter>
-                  </Card>
+                      </CardFooter>
+                    </Card>
+                  </Link>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <Card className="bg-muted/50">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="rounded-full bg-primary/10 p-4 mb-4">
+                    <Image 
+                      src="/assets/empty-menu.svg" 
+                      alt="No menus" 
+                      width={64} 
+                      height={64} 
+                      className="opacity-70"
+                    />
+                  </div>
+                  <h3 className="text-xl font-medium mb-2">No recent menus</h3>
+                  <p className="text-muted-foreground mb-6 max-w-md">
+                    Create your first menu to get started with meal planning
+                  </p>
+                  <Button onClick={() => router.push('/create')}>
+                    Create Your First Menu
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </section>
       </main>
     </div>

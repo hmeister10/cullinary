@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 interface MenuTileProps {
   title: string;
   description: string;
-  iconType: "create-menu" | "join-menu" | "recipe-collection";
+  iconType: "create-menu" | "join-menu" | "recipe-collection" | "browse-recipes";
   onClick?: () => void;
   actionButton?: ReactNode;
   className?: string;
