@@ -36,7 +36,7 @@ interface SwipePageContentProps {
 }
 
 const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
-  const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName, removeDishFromShortlist, user } = useApp()
+  const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName, removeDishFromShortlist, user, loadMenu } = useApp()
   const [currentCategory, setCurrentCategory] = useState<string>("breakfast")
   const [currentDishes, setCurrentDishes] = useState<Dish[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -46,6 +46,7 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
   const [shouldLoadDishes, setShouldLoadDishes] = useState(false)
   const [showParticipants, setShowParticipants] = useState(false)
   const [isRemovingDish, setIsRemovingDish] = useState(false)
+  const [isLoadingMenu, setIsLoadingMenu] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -155,13 +156,34 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
     
     // Handle menu joining from URL
     if (menuId && !activeMenu && !isJoining && !hasInitializedRef.current) {
-      joinMenuFromUrl(menuId);
-      hasInitializedRef.current = true;
+      console.log("Attempting to load or join menu from URL:", menuId);
+      setIsLoadingMenu(true);
+      
+      // First try to load the menu (for page refreshes)
+      loadMenu(menuId)
+        .then(success => {
+          if (success) {
+            console.log("Successfully loaded menu from URL:", menuId);
+            hasInitializedRef.current = true;
+          } else {
+            // If loading fails, try joining (for new menu invites)
+            console.log("Failed to load menu, attempting to join:", menuId);
+            return joinMenuFromUrl(menuId);
+          }
+        })
+        .catch(error => {
+          console.error("Error handling menu from URL:", error);
+          router.push("/");
+        })
+        .finally(() => {
+          setIsLoadingMenu(false);
+        });
+      
       return;
     }
     
-    // Redirect if no active menu
-    if (!activeMenu && hasInitializedRef.current) {
+    // Redirect if no active menu and we've already tried initializing
+    if (!activeMenu && hasInitializedRef.current && !isLoadingMenu) {
       router.push("/");
       return;
     }
@@ -219,7 +241,9 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
     currentCategory, 
     joinMenuFromUrl, 
     router, 
-    loadDishes
+    loadDishes,
+    loadMenu,
+    isLoadingMenu
   ]);
 
   // Handle refresh button click
@@ -509,6 +533,17 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
         <UserNameForm onComplete={() => {}} />
       </div>
     )
+  }
+
+  if (isLoadingMenu) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Loading menu...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
