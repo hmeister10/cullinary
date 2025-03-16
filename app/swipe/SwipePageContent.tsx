@@ -31,7 +31,11 @@ import {
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 
-const SwipePageContent = () => {
+interface SwipePageContentProps {
+  menuIdFromUrl?: string;
+}
+
+const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
   const { activeMenu, fetchDishesToSwipe, swipeOnDish, joinMenu, hasSetName, removeDishFromShortlist, user } = useApp()
   const [currentCategory, setCurrentCategory] = useState<string>("breakfast")
   const [currentDishes, setCurrentDishes] = useState<Dish[]>([])
@@ -46,7 +50,7 @@ const SwipePageContent = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   const likeAnimationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const menuId = searchParams.get('menu')
+  const menuId = menuIdFromUrl || searchParams.get('menu')
   const hasInitializedRef = useRef(false)
 
   const joinMenuFromUrl = useCallback(async (id: string) => {
@@ -85,7 +89,6 @@ const SwipePageContent = () => {
     }
   }, [joinMenu, toast, router, isJoining])
 
-  // Simplified loadDishes function without isLoading dependency
   const loadDishes = useCallback(async (category: string) => {
     console.log("Loading dishes for category:", category);
     
@@ -98,8 +101,24 @@ const SwipePageContent = () => {
       
       setIsLoading(true);
       
-      // Use the new dishes API
-      const apiUrl = `/api/dishes?category=${category}&limit=20`;
+      // Build query parameters based on user preferences
+      const queryParams = new URLSearchParams();
+      
+      // Capitalize the first letter of the category to match API expectations
+      const capitalizedCategory = category.charAt(0).toUpperCase() + category.slice(1);
+      queryParams.append('category', capitalizedCategory);
+      queryParams.append('limit', '20');
+      
+      // Add dietary preference if user has set it
+      if (user?.dietaryPreferences?.isVegetarian) {
+        queryParams.append('preference', 'Veg');
+      }
+      
+      // Use the dishes API - start with a simple request without cuisine filters
+      // to ensure we get results
+      const apiUrl = `/api/dishes?${queryParams.toString()}`;
+      console.log("Fetching dishes from:", apiUrl);
+      
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
@@ -107,6 +126,14 @@ const SwipePageContent = () => {
       }
       
       const data = await response.json();
+      console.log(`Received ${data.dishes?.length || 0} dishes from API:`, data);
+      
+      // Ensure we have dishes array
+      if (!data.dishes || !Array.isArray(data.dishes)) {
+        console.error("API response doesn't contain dishes array:", data);
+        return [];
+      }
+      
       return data.dishes;
     } catch (error) {
       console.error("Error loading dishes:", error);
@@ -119,7 +146,7 @@ const SwipePageContent = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [activeMenu, toast]);
+  }, [activeMenu, toast, user]);
 
   // Single useEffect to handle initialization and category changes
   useEffect(() => {
@@ -143,13 +170,41 @@ const SwipePageContent = () => {
     if (activeMenu) {
       console.log("Loading dishes for category:", currentCategory);
       setCurrentDishes([]); // Clear current dishes
+      setIsLoading(true);
       
       // Load dishes for the current category
-      loadDishes(currentCategory).then(dishes => {
-        if (dishes && dishes.length > 0) {
-          setCurrentDishes(dishes);
-        }
-      });
+      loadDishes(currentCategory)
+        .then(dishes => {
+          console.log(`Setting ${dishes.length} dishes for category ${currentCategory}`);
+          if (dishes.length > 0) {
+            setCurrentDishes(dishes);
+            return;
+          }
+          
+          // If no dishes found, try with just the category and no other filters
+          console.log("No dishes found with filters, trying with just category");
+          const capitalizedCategory = currentCategory.charAt(0).toUpperCase() + currentCategory.slice(1);
+          const fallbackUrl = `/api/dishes?category=${capitalizedCategory}&limit=20`;
+          
+          return fetch(fallbackUrl)
+            .then(response => {
+              if (!response.ok) throw new Error("Failed to fetch dishes");
+              return response.json();
+            })
+            .then(data => {
+              console.log(`Fallback: Received ${data.dishes?.length || 0} dishes`);
+              if (data.dishes && data.dishes.length > 0) {
+                setCurrentDishes(data.dishes);
+              }
+            });
+        })
+        .catch(error => {
+          console.error("Error loading dishes:", error);
+          setCurrentDishes([]);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
       
       // Mark as initialized if not already
       if (!hasInitializedRef.current) {
@@ -169,11 +224,40 @@ const SwipePageContent = () => {
 
   // Handle refresh button click
   const handleRefresh = useCallback(() => {
-    loadDishes(currentCategory).then(dishes => {
-      if (dishes && dishes.length > 0) {
-        setCurrentDishes(dishes);
-      }
-    });
+    setIsLoading(true);
+    
+    // First try with normal filters
+    loadDishes(currentCategory)
+      .then(dishes => {
+        console.log(`Refresh: Setting ${dishes.length} dishes for category ${currentCategory}`);
+        if (dishes.length > 0) {
+          setCurrentDishes(dishes);
+          return;
+        }
+        
+        // If no dishes found, try with just the category and no other filters
+        console.log("No dishes found with filters, trying with just category");
+        const capitalizedCategory = currentCategory.charAt(0).toUpperCase() + currentCategory.slice(1);
+        const fallbackUrl = `/api/dishes?category=${capitalizedCategory}&limit=20`;
+        
+        return fetch(fallbackUrl)
+          .then(response => {
+            if (!response.ok) throw new Error("Failed to fetch dishes");
+            return response.json();
+          })
+          .then(data => {
+            console.log(`Fallback: Received ${data.dishes?.length || 0} dishes`);
+            if (data.dishes && data.dishes.length > 0) {
+              setCurrentDishes(data.dishes);
+            }
+          });
+      })
+      .catch(error => {
+        console.error("Error refreshing dishes:", error);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [currentCategory, loadDishes]);
 
   // Cleanup on unmount
@@ -607,19 +691,31 @@ const SwipePageContent = () => {
                 </div>
               ) : currentDishes.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full space-y-4">
-                  <p>No dishes available.</p>
-                  <Button onClick={handleRefresh}>Refresh</Button>
+                  <p>No dishes available for {category.charAt(0).toUpperCase() + category.slice(1)}.</p>
+                  <p className="text-sm text-muted-foreground text-center max-w-xs">
+                    We couldn't find dishes matching your preferences for this category.
+                  </p>
+                  <Button onClick={handleRefresh}>
+                    Try Again
+                  </Button>
                 </div>
               ) : (
-                <DishStack 
-                  dishes={currentDishes}
-                  onSwipe={handleSwipe}
-                  isLoading={isLoading}
-                  onRefresh={handleRefresh}
-                  showLikeAnimation={showLikeAnimation && currentCategory === category}
-                  lastLikedDish={lastLikedDish}
-                  userPreferences={user?.dietaryPreferences}
-                />
+                <>
+                  {/* Debug info - remove in production */}
+                  <div className="absolute top-0 right-0 text-xs text-muted-foreground bg-background/80 p-1 rounded z-10">
+                    {currentDishes.length} dishes loaded
+                  </div>
+                  
+                  <DishStack 
+                    dishes={currentDishes}
+                    onSwipe={handleSwipe}
+                    isLoading={isLoading}
+                    onRefresh={handleRefresh}
+                    showLikeAnimation={showLikeAnimation && currentCategory === category}
+                    lastLikedDish={lastLikedDish}
+                    userPreferences={user?.dietaryPreferences}
+                  />
+                </>
               )}
             </TabsContent>
           ))}

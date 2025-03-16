@@ -1,29 +1,32 @@
 "use client"
 
-import { Suspense } from "react"
-import dynamic from 'next/dynamic'
-import { Header } from "@/components/header"
+import { useEffect, useRef } from "react"
+import { useRouter } from "next/navigation"
+import { useApp } from "@/providers/app-provider"
 
-// Use dynamic import with SSR disabled to prevent hydration issues
-const SwipePageContent = dynamic(() => import('./SwipePageContent'), { ssr: false })
+export default function SwipeRedirectPage() {
+  const { activeMenu } = useApp()
+  const router = useRouter()
+  const hasRedirected = useRef(false)
 
-// Simple loading component
-const Loading = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <p className="text-lg">Loading...</p>
-  </div>
-)
+  useEffect(() => {
+    // Prevent multiple redirects
+    if (hasRedirected.current) return
+    hasRedirected.current = true
+    
+    // If there's an active menu, redirect to the swipe page with that menu ID
+    if (activeMenu) {
+      router.push(`/swipe/${activeMenu.menu_id}`)
+    } else {
+      // Otherwise, redirect to the home page
+      router.push("/")
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Empty dependency array to run only once
 
-// Main page component
-export default function SwipePage() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header showBackButton title="Dish Swiper" />
-      <main className="flex-1">
-        <Suspense fallback={<Loading />}>
-          <SwipePageContent />
-        </Suspense>
-      </main>
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-lg">Redirecting...</p>
     </div>
   )
 }

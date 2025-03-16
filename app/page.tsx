@@ -1,17 +1,19 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
 import Link from "next/link"
 import { getStoredMenus, removeMenuFromStorage } from "@/lib/local-storage"
 import { format } from "date-fns"
-import { Calendar, Clock, Trash2 } from "lucide-react"
+import { Calendar, Clock, Trash2, Utensils } from "lucide-react"
 import { useApp } from "@/providers/app-provider"
 import { Header } from "@/components/header"
 import { QuickSetup } from "./profile/components/QuickSetup"
 import { MenuTile } from "@/app/components/MenuTile"
+import { Badge } from "@/components/ui/badge"
+import type { Dish } from "@/lib/types/dish-types"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,20 +45,57 @@ interface QuickSetupPreferences {
 }
 
 export default function HomePage() {
-  const { loading, hasSetName, deleteMenu, updateUserProfile } = useApp()
+  const { loading, hasSetName, deleteMenu, updateUserProfile, user } = useApp()
   const [recentMenus, setRecentMenus] = useState<StoredMenu[]>([])
   const [menuToDelete, setMenuToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [featuredDishes, setFeaturedDishes] = useState<Dish[]>([])
+  const [isLoadingDishes, setIsLoadingDishes] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
+  const hasLoadedMenus = useRef(false)
+  const hasLoadedDishes = useRef(false)
 
   // Load menus from localStorage on client side
   useEffect(() => {
-    if (!loading && hasSetName) {
+    // Only load menus if we haven't already and the conditions are right
+    if (!hasLoadedMenus.current && !loading && hasSetName) {
       const menus = getStoredMenus()
       setRecentMenus(menus.slice(0, 3)) // Show only the 3 most recent menus
+      hasLoadedMenus.current = true
     }
   }, [loading, hasSetName])
+
+  // Load featured dishes from API
+  useEffect(() => {
+    const fetchFeaturedDishes = async () => {
+      if (hasLoadedDishes.current || loading || !hasSetName) return
+      
+      try {
+        setIsLoadingDishes(true)
+        hasLoadedDishes.current = true
+        
+        // Get user's dietary preferences
+        const dietPreference = user?.dietaryPreferences?.isVegetarian ? 'Veg' : undefined
+        
+        // Fetch dishes from API
+        const response = await fetch(`/api/dishes?limit=6${dietPreference ? `&preference=${dietPreference}` : ''}`)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch dishes: ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        setFeaturedDishes(data.dishes || [])
+      } catch (error) {
+        console.error('Error fetching featured dishes:', error)
+      } finally {
+        setIsLoadingDishes(false)
+      }
+    }
+    
+    fetchFeaturedDishes()
+  }, [loading, hasSetName, user])
 
   // Handle quick setup completion
   const handleQuickSetupComplete = async (quickPreferences: QuickSetupPreferences) => {
@@ -329,6 +368,81 @@ export default function HomePage() {
               </Card>
             )}
           </div>
+          
+          {/* Featured Dishes Section */}
+          {hasSetName && (
+            <div className="w-full max-w-4xl mx-auto mt-12">
+              <h2 className="text-2xl font-bold mb-6">Featured Dishes</h2>
+              
+              {isLoadingDishes ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+              ) : featuredDishes.length > 0 ? (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {featuredDishes.map((dish) => (
+                    <Card key={dish.dish_id} className="overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="relative h-48 w-full">
+                        <Image
+                          src={dish.image_url || "/assets/food-placeholder.svg"}
+                          alt={dish.name}
+                          fill
+                          className="object-cover"
+                        />
+                        <div className="absolute top-2 right-2 flex gap-1">
+                          <Badge variant={dish.preference === 'Veg' ? 'secondary' : 'default'}>
+                            {dish.preference}
+                          </Badge>
+                          {dish.is_healthy && (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                              Healthy
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg">{dish.name}</CardTitle>
+                        <CardDescription className="line-clamp-1">
+                          {dish.cuisines.join(', ')}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="pb-2">
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {dish.description}
+                        </p>
+                      </CardContent>
+                      <CardFooter>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="w-full"
+                          onClick={() => router.push(`/recipes/${dish.dish_id}`)}
+                        >
+                          <Utensils className="h-4 w-4 mr-2" />
+                          View Recipe
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card className="bg-muted/50">
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="rounded-full bg-primary/10 p-4 mb-4">
+                      <Utensils className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-xl font-medium mb-2">No featured dishes</h3>
+                    <p className="text-muted-foreground mb-6 max-w-md">
+                      We couldn't load any featured dishes at the moment
+                    </p>
+                    <Button onClick={() => router.push('/recipes')}>
+                      Browse All Recipes
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
         </section>
       </main>
     </div>

@@ -52,6 +52,7 @@ interface AppContextType {
   deleteMenu: (menuId: string) => Promise<boolean>
   removeDishFromShortlist: (dish: Dish, category: string) => Promise<boolean>
   updateUser: (user: User) => void // Add updateUser method
+  loadMenu: (menuId: string) => Promise<boolean> // Add loadMenu function
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -517,6 +518,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Load a menu by ID and set it as the active menu
+  const loadMenu = async (menuId: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      console.log(`App Provider: Loading menu with ID: ${menuId}`);
+      
+      // Try to get menu from Firestore
+      try {
+        const firestoreMenu = await firestoreService.getMenu(menuId);
+        
+        if (firestoreMenu) {
+          setActiveMenu(firestoreMenu);
+          return true;
+        }
+      } catch (error) {
+        console.error("Error loading menu from Firestore:", error);
+      }
+      
+      // Fallback to mock DB if Firestore fails
+      try {
+        const mockMenu = await mockDB.getMenu(menuId);
+        
+        if (mockMenu) {
+          setActiveMenu(mockMenu);
+          return true;
+        }
+      } catch (error) {
+        console.error("Error loading menu from mock DB:", error);
+      }
+      
+      console.error(`App Provider: Could not find menu with ID: ${menuId}`);
+      return false;
+    } catch (error) {
+      console.error("Error loading menu:", error);
+      return false;
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -534,7 +574,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getMenuParticipants,
         deleteMenu,
         removeDishFromShortlist,
-        updateUser
+        updateUser,
+        loadMenu
       }}
     >
       {children}
