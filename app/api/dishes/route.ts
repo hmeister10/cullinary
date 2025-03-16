@@ -6,21 +6,30 @@ import { Dish, MealCategory, DietPreference, CuisineType, SpiceLevel } from "@/l
 
 // Define the structure of the CSV records
 interface CsvDishRecord {
-  RecipeId: string;
-  TranslatedRecipeName: string;
-  Cuisine: string;
-  Course: string;
-  Diet: string;
-  PrepTimeInMins: string;
-  CookTimeInMins: string;
-  TotalTimeInMins: string;
-  Servings: string;
-  Ingredients: string;
-  Instructions: string;
-  URL: string;
-  CleanedIngredients: string;
-  'image-url'?: string;
-  RecipeDescription?: string;
+  dish_id: string;
+  recipe_index: string;
+  name: string;
+  category: string;
+  is_healthy: string;
+  preference: string;
+  image_url: string;
+  cuisines: string;
+  dietary_tags: string;
+  spice_level: string;
+  description: string;
+  cuisine: string;
+  course: string;
+  diet: string;
+  preparation_time: string;
+  cooking_time: string;
+  total_time: string;
+  ingredients_raw: string;
+  ingredients_cleaned: string;
+  ingredients_array: string;
+  ingredient_count: string;
+  instructions: string;
+  original_recipe_id: string;
+  original_url: string;
 }
 
 // Cache for dishes to avoid parsing the CSV file on every request
@@ -156,7 +165,7 @@ function readCsvFile<T>(filePath: string): T[] {
 async function loadDishesFromCsv(): Promise<Dish[]> {
   try {
     // Path to the CSV file
-    const csvFilePath = path.join(process.cwd(), 'lib/data/Cleaned_Indian_Food_Dataset.csv');
+    const csvFilePath = path.join(process.cwd(), 'lib/data/Master_Indian_Food_Dataset.csv');
     
     // For debugging
     console.log('CSV file path:', csvFilePath);
@@ -182,51 +191,84 @@ async function loadDishesFromCsv(): Promise<Dish[]> {
 function transformCsvRecordsToDishes(records: CsvDishRecord[]): Dish[] {
   const placeholderImage = "/assets/food-placeholder.svg";
   
-  // Process all records, not just the first 100
-  return records.map((record, index) => {
-    // Generate a unique ID - ensure uniqueness by using the index as the primary key
-    const dish_id = `csv_${index + 1}_${index}_${record.TranslatedRecipeName.slice(0, 20).replace(/\s+/g, '_').toLowerCase()}`;
+  return records.map((record) => {
+    // Parse boolean values
+    const isHealthy = record.is_healthy === '1' || record.is_healthy === 'true' || record.is_healthy === 'TRUE';
     
-    // Determine meal category based on Course
-    const category = mapCourseToCategoryType(record.Course);
+    // Parse arrays from JSON strings
+    let cuisines: CuisineType[] = ['Other'];
+    try {
+      if (record.cuisines) {
+        const parsedCuisines = JSON.parse(record.cuisines);
+        if (Array.isArray(parsedCuisines) && parsedCuisines.length > 0) {
+          cuisines = parsedCuisines as CuisineType[];
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing cuisines for dish ${record.dish_id}:`, e);
+    }
     
-    // Determine diet preference
-    const preference = mapDietToPreferenceType(record.Diet);
+    let ingredients: string[] = [];
+    try {
+      if (record.ingredients_array && record.ingredients_array !== '[]') {
+        // Try to parse the JSON array
+        const parsedIngredients = JSON.parse(record.ingredients_array);
+        if (Array.isArray(parsedIngredients)) {
+          ingredients = parsedIngredients;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing ingredients_array for dish ${record.dish_id}:`, e);
+    }
     
-    // Extract cuisines
-    const cuisines = extractCuisines(record.Cuisine);
+    // If ingredients array is still empty, try to extract from ingredients_cleaned
+    if (ingredients.length === 0 && record.ingredients_cleaned) {
+      ingredients = extractIngredients(record.ingredients_cleaned);
+    }
     
-    // Extract ingredients
-    const ingredients = extractIngredients(record.CleanedIngredients);
+    // If still empty, try to extract from ingredients_raw
+    if (ingredients.length === 0 && record.ingredients_raw) {
+      ingredients = record.ingredients_raw.split(',').map(i => i.trim()).filter(i => i);
+    }
     
-    // Determine if the dish is healthy (simplified logic)
-    const is_healthy = isHealthyDish(record);
+    let dietaryTags: string[] = [];
+    try {
+      if (record.dietary_tags) {
+        const parsedTags = JSON.parse(record.dietary_tags);
+        if (Array.isArray(parsedTags)) {
+          dietaryTags = parsedTags;
+        }
+      }
+    } catch (e) {
+      console.warn(`Error parsing dietary tags for dish ${record.dish_id}:`, e);
+    }
     
-    // Extract preparation time
-    const preparation_time = parseInt(record.PrepTimeInMins) || undefined;
+    // Parse preparation time
+    const preparationTime = parseInt(record.preparation_time) || undefined;
     
-    // Determine spice level (simplified logic)
-    const spice_level = determineSpiceLevel(record);
+    // Map category to MealCategory type
+    const category: MealCategory = (record.category as MealCategory) || mapCourseToCategoryType(record.course);
     
-    // Extract dietary tags
-    const dietary_tags = extractDietaryTags(record);
+    // Map preference to DietPreference type
+    const preference: DietPreference = (record.preference as DietPreference) || mapDietToPreferenceType(record.diet);
     
-    const image_url = record['image-url'] || placeholderImage;
-
+    // Map spice level to SpiceLevel type
+    const spiceLevel: SpiceLevel = (record.spice_level as SpiceLevel) || 'Medium';
+    
     // Create the Dish object
     return {
-      dish_id,
-      name: record.TranslatedRecipeName,
+      dish_id: record.dish_id,
+      name: record.name,
       category,
-      is_healthy,
+      is_healthy: isHealthy,
       preference,
-      image_url,
+      image_url: record.image_url || placeholderImage,
       cuisines,
       ingredients,
-      dietary_tags,
-      spice_level,
-      preparation_time,
-      description: record.RecipeDescription || `${record.TranslatedRecipeName} - ${record.Cuisine} cuisine.`,
+      dietary_tags: dietaryTags,
+      spice_level: spiceLevel,
+      preparation_time: preparationTime,
+      description: record.description || `${record.name} - ${record.cuisine || 'Indian'} cuisine.`,
     };
   });
 }
@@ -309,7 +351,7 @@ function extractCuisines(cuisine: string): CuisineType[] {
 }
 
 /**
- * Extract ingredients from CleanedIngredients field
+ * Extract ingredients from ingredients_cleaned field
  */
 function extractIngredients(cleanedIngredients: string): string[] {
   if (!cleanedIngredients) return [];
@@ -325,8 +367,8 @@ function extractIngredients(cleanedIngredients: string): string[] {
  * Determine if a dish is healthy (simplified logic)
  */
 function isHealthyDish(record: CsvDishRecord): boolean {
-  const lowerDiet = record.Diet?.toLowerCase() || '';
-  const lowerIngredients = record.CleanedIngredients?.toLowerCase() || '';
+  const lowerDiet = record.diet?.toLowerCase() || '';
+  const lowerIngredients = record.ingredients_cleaned?.toLowerCase() || '';
   
   // Consider vegetarian dishes as generally healthier
   const isVegetarian = lowerDiet.includes('vegetarian') || lowerDiet.includes('vegan');
@@ -353,7 +395,7 @@ function isHealthyDish(record: CsvDishRecord): boolean {
  * Determine spice level (simplified logic)
  */
 function determineSpiceLevel(record: CsvDishRecord): SpiceLevel {
-  const lowerIngredients = record.CleanedIngredients?.toLowerCase() || '';
+  const lowerIngredients = record.ingredients_cleaned?.toLowerCase() || '';
   
   // Check for spicy ingredients
   const hasVerySpicyIngredients = 
@@ -381,9 +423,9 @@ function determineSpiceLevel(record: CsvDishRecord): SpiceLevel {
  */
 function extractDietaryTags(record: CsvDishRecord): string[] {
   const tags: string[] = [];
-  const lowerDiet = record.Diet?.toLowerCase() || '';
-  const lowerIngredients = record.CleanedIngredients?.toLowerCase() || '';
-  const prepTime = parseInt(record.PrepTimeInMins) || 0;
+  const lowerDiet = record.diet?.toLowerCase() || '';
+  const lowerIngredients = record.ingredients_cleaned?.toLowerCase() || '';
+  const prepTime = parseInt(record.preparation_time) || 0;
   
   // Diet-based tags
   if (lowerDiet.includes('vegetarian')) tags.push('vegetarian');
@@ -400,8 +442,8 @@ function extractDietaryTags(record: CsvDishRecord): string[] {
   if (prepTime <= 30) tags.push('easy');
   
   // Cuisine-based tags
-  if (record.Cuisine?.toLowerCase().includes('traditional')) tags.push('traditional');
-  if (record.Cuisine?.toLowerCase().includes('street')) tags.push('street-food');
+  if (record.cuisine?.toLowerCase().includes('traditional')) tags.push('traditional');
+  if (record.cuisine?.toLowerCase().includes('street')) tags.push('street-food');
   
   return tags;
 } 
