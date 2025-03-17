@@ -56,6 +56,14 @@ export default {
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
   		},
+      container: {
+        center: true,
+        padding: {
+          DEFAULT: '1rem',
+          sm: '2rem',
+          lg: '4rem',
+        },
+      },
       keyframes: {
         "fadeIn": {
           "0%": { opacity: "0", transform: "translateY(10px)" },
@@ -64,11 +72,15 @@ export default {
         "bounce-subtle": {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-10%)" }
+        },
+        "shimmer": {
+          "100%": { transform: "translateX(100%)" }
         }
       },
       animation: {
         "fadeIn": "fadeIn 0.5s ease-out",
-        "bounce-subtle": "bounce-subtle 2s ease-in-out infinite"
+        "bounce-subtle": "bounce-subtle 2s ease-in-out infinite",
+        "shimmer": "shimmer 2s infinite"
       }
   	}
   },

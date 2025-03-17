@@ -1,11 +1,9 @@
 "use client"
 
-import { Dish } from "@/lib/mock-data"
+import type { Dish } from "@/lib/types/dish-types"
 import { Button } from "@/components/ui/button"
 import DishCard from "./DishCard"
-import TinderCard from "@/components/tinder-card"
-import HeartAnimation from "./HeartAnimation"
-import { memo, useEffect } from "react"
+import { memo } from "react"
 
 interface DishStackProps {
   dishes: Dish[];
@@ -14,15 +12,20 @@ interface DishStackProps {
   onRefresh: () => void;
   showLikeAnimation: boolean;
   lastLikedDish: Dish | null;
+  userPreferences?: any;
+  swipedDishIds?: string[];
 }
 
-// Use memo to prevent unnecessary re-renders
-const DishStack = memo(({ dishes, onSwipe, isLoading, onRefresh, showLikeAnimation, lastLikedDish }: DishStackProps) => {
-  // Log when dishes change
-  useEffect(() => {
-    console.log("DishStack received dishes:", dishes.length);
-  }, [dishes]);
+const DishStack = memo(({ 
+  dishes, 
+  onSwipe, 
+  isLoading, 
+  onRefresh,
+  userPreferences
+}: DishStackProps) => {
+  console.log("DishStack rendered with dishes:", dishes.length);
 
+  // Loading state
   if (isLoading && dishes.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -34,6 +37,7 @@ const DishStack = memo(({ dishes, onSwipe, isLoading, onRefresh, showLikeAnimati
     );
   }
   
+  // Empty state
   if (dishes.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full space-y-4">
@@ -49,36 +53,42 @@ const DishStack = memo(({ dishes, onSwipe, isLoading, onRefresh, showLikeAnimati
     );
   }
   
+  // Main content - show current dish with simple like/dislike buttons
+  const currentDish = dishes[0];
+  
   return (
-    <div className="relative h-full">
-      {/* Like animation overlay */}
-      {showLikeAnimation && <HeartAnimation dish={lastLikedDish} />}
-      
-      {/* Only render the top card to improve performance */}
-      <div className="absolute w-full h-full">
-        <TinderCard
-          onSwipe={(direction) => onSwipe(dishes[0], direction)}
-          preventSwipe={["up", "down"]}
-          className="w-full h-full"
-        >
-          <DishCard dish={dishes[0]} />
-        </TinderCard>
+    <div className="relative h-full flex flex-col">
+      {/* Primary dish card */}
+      <div className="flex-1 mb-4">
+        <DishCard 
+          dish={currentDish} 
+          matchScore={50} // Simple default score
+          matchReasons={[]}
+        />
       </div>
       
-      {/* Render the next few cards as a stack for visual effect */}
-      {dishes.slice(1, 3).map((dish, index) => (
-        <div 
-          key={dish.dish_id} 
-          className="absolute w-full h-full pointer-events-none"
-          style={{
-            zIndex: -index - 1,
-            transform: `translateY(${(index + 1) * 8}px) scale(${1 - (index + 1) * 0.05})`,
-            opacity: 1 - (index + 1) * 0.2
-          }}
+      {/* Simple swipe controls */}
+      <div className="flex justify-center space-x-4 pb-4">
+        <Button 
+          variant="outline" 
+          className="rounded-full h-14 w-14 flex items-center justify-center"
+          onClick={() => onSwipe(currentDish, "left")}
         >
-          <DishCard dish={dish} />
-        </div>
-      ))}
+          👎
+        </Button>
+        <Button 
+          variant="default" 
+          className="rounded-full h-14 w-14 flex items-center justify-center"
+          onClick={() => onSwipe(currentDish, "right")}
+        >
+          👍
+        </Button>
+      </div>
+      
+      {/* Dish counter */}
+      <div className="text-xs text-muted-foreground text-center pb-2">
+        {dishes.length} dishes remaining
+      </div>
     </div>
   );
 });

@@ -32,18 +32,7 @@ export function Header({ showBackButton = false, title = "Menu Maker" }: HeaderP
           {title && <h1 className="text-2xl font-bold">{title}</h1>}
         </div>
         
-        <div className="flex items-center gap-2">
-          {/* Mobile menu button - only visible on small screens */}
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="md:hidden" 
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            <MenuIcon className="h-5 w-5" />
-          </Button>
-          
+        <div className="flex items-center gap-2">          
           {/* User profile button */}
           <Link href="/profile" passHref>
             <Button 
@@ -61,6 +50,17 @@ export function Header({ showBackButton = false, title = "Menu Maker" }: HeaderP
               )}
             </Button>
           </Link>
+
+           {/* Mobile menu button - only visible on small screens */}
+           <Button 
+            variant="ghost" 
+            size="icon" 
+            className="md:hidden" 
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            <MenuIcon className="h-5 w-5" />
+          </Button>
         </div>
       </div>
       
@@ -74,6 +74,16 @@ export function Header({ showBackButton = false, title = "Menu Maker" }: HeaderP
             <li>
               <Link href="/" className="block py-2 px-3 rounded-md hover:bg-accent">
                 Home
+              </Link>
+            </li>
+            <li>
+              <Link href="/explore" className="block py-2 px-3 rounded-md hover:bg-accent">
+                Explore Dishes
+              </Link>
+            </li>
+            <li>
+              <Link href="/recipes" className="block py-2 px-3 rounded-md hover:bg-accent">
+                Recipe Collection
               </Link>
             </li>
             <li>
