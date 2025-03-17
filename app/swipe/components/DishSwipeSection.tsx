@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast"
 import { useApp } from "@/providers/app-provider"
 import type { Dish } from "@/lib/types/dish-types"
 import DishStack from "../DishStack"
-import SwipeControls from "../SwipeControls"
 import { Button } from "@/components/ui/button"
 import { TabsContent } from "@/components/ui/tabs"
 
@@ -24,7 +23,6 @@ export const DishSwipeSection = ({
   const [lastLikedDish, setLastLikedDish] = useState<Dish | null>(null)
   const [showLikeAnimation, setShowLikeAnimation] = useState(false)
   const [swipedDishIds, setSwipedDishIds] = useState<Set<string>>(new Set())
-  const [randomSeed, setRandomSeed] = useState<number>(Math.random())
   const apiCallInProgressRef = useRef<boolean>(false)
   const previouslyLoadedDishIdsRef = useRef<Set<string>>(new Set())
   const likeAnimationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -81,26 +79,20 @@ export const DishSwipeSection = ({
       
       setIsLoading(true);
       
-      // Create a new seed for each API call to ensure variety
-      const newSeed = Math.random();
-      setRandomSeed(newSeed);
-      console.log(`Using new seed for API call: ${newSeed}`);
-      
       const queryParams = new URLSearchParams();
       
+      // 1. Load dishes for the selected time of day
       const capitalizedMealTime = mealTime.charAt(0).toUpperCase() + mealTime.slice(1);
       queryParams.append('category', capitalizedMealTime);
       queryParams.append('limit', '30');
       
+      // 2. Apply user preferences
       if (user?.dietaryPreferences?.isVegetarian) {
         queryParams.append('preference', 'Veg');
       }
       
-      // Add the seed parameter
-      queryParams.append('seed', newSeed.toString());
-      
+      // 3. Filter out already seen dishes
       // Add already swiped dish IDs to exclude them from results
-      // Convert Set to Array and join with commas
       if (swipedDishIds.size > 0) {
         const swipedIds = Array.from(swipedDishIds).join(',');
         queryParams.append('exclude', swipedIds);
@@ -146,6 +138,7 @@ export const DishSwipeSection = ({
       });
       
       setCurrentDishes(data.dishes);
+      console.log(`Loaded ${data.dishes.length} dishes for ${mealTime}`);
     } catch (error) {
       console.error("Error loading dishes:", error);
       toast({
@@ -172,26 +165,22 @@ export const DishSwipeSection = ({
     apiCallInProgressRef.current = true;
     
     try {
-      // Generate a new seed specifically for this request
-      const newSeed = Math.random();
-      setRandomSeed(newSeed);
-      console.log(`Using new seed for more dishes: ${newSeed}`);
-      
       setIsLoading(true);
       
       // Build query with increased limit
       const queryParams = new URLSearchParams();
+      
+      // 1. Load dishes for the selected time of day with increased limit
       const capitalizedMealTime = mealTime.charAt(0).toUpperCase() + mealTime.slice(1);
       queryParams.append('category', capitalizedMealTime);
       queryParams.append('limit', '50'); // Increased limit
-      queryParams.append('seed', newSeed.toString());
       
-      // Add dietary preferences
+      // 2. Apply user preferences
       if (user?.dietaryPreferences?.isVegetarian) {
         queryParams.append('preference', 'Veg');
       }
       
-      // Add already swiped dish IDs to exclude them
+      // 3. Filter out already seen dishes
       if (swipedDishIds.size > 0) {
         const swipedIds = Array.from(swipedDishIds).join(',');
         queryParams.append('exclude', swipedIds);
@@ -260,6 +249,10 @@ export const DishSwipeSection = ({
     // Clear previously loaded dishes to get a fresh set
     previouslyLoadedDishIdsRef.current = new Set();
     
+    // Set loading state
+    setIsLoading(true);
+    setCurrentDishes([]);
+    
     // Load dishes with normal filters
     loadDishes();
   }, [loadDishes]);
@@ -321,7 +314,8 @@ export const DishSwipeSection = ({
           console.log("Dishes running low, loading more...");
           // Use setTimeout to avoid state update conflicts
           setTimeout(() => {
-            loadDishes();
+            // Call loadDishes directly without triggering the meal time effect
+            loadDishesWithoutReset();
           }, 300); // Small delay to ensure smooth transition
         }
         
@@ -335,17 +329,109 @@ export const DishSwipeSection = ({
         description: "Failed to process your choice. Please try again.",
       })
     }
-  }, [swipeOnDish, toast, loadDishes, swipedDishIds]);
+  }, [swipeOnDish, toast, swipedDishIds]);
 
-  // Load dishes when meal time changes
-  useEffect(() => {
-    if (menu) {
-      console.log("Meal time changed, loading new dishes");
-      previouslyLoadedDishIdsRef.current = new Set();
-      setCurrentDishes([]);
-      loadDishes();
+  // Function to load more dishes without resetting current dishes
+  const loadDishesWithoutReset = useCallback(async () => {
+    console.log(`Loading more dishes for current meal time: ${mealTime}`);
+    
+    if (apiCallInProgressRef.current) {
+      console.log("API call already in progress, skipping");
+      return;
     }
-  }, [mealTime, menu, loadDishes]);
+    
+    apiCallInProgressRef.current = true;
+    
+    try {
+      if (!menu) {
+        console.error("No active menu, cannot load dishes");
+        return;
+      }
+      
+      // Don't set isLoading to true here to avoid showing loading state
+      // Don't clear current dishes
+      
+      const queryParams = new URLSearchParams();
+      
+      // 1. Load dishes for the selected time of day
+      const capitalizedMealTime = mealTime.charAt(0).toUpperCase() + mealTime.slice(1);
+      queryParams.append('category', capitalizedMealTime);
+      queryParams.append('limit', '10'); // Smaller limit for adding more
+      
+      // 2. Apply user preferences
+      if (user?.dietaryPreferences?.isVegetarian) {
+        queryParams.append('preference', 'Veg');
+      }
+      
+      // 3. Filter out already seen dishes
+      // Add already swiped dish IDs to exclude them from results
+      if (swipedDishIds.size > 0) {
+        const swipedIds = Array.from(swipedDishIds).join(',');
+        queryParams.append('exclude', swipedIds);
+        console.log(`Excluding ${swipedDishIds.size} already swiped dishes`);
+      }
+      
+      // Also exclude previously loaded dishes
+      if (previouslyLoadedDishIdsRef.current.size > 0) {
+        const previouslyLoadedIds = Array.from(previouslyLoadedDishIdsRef.current).join(',');
+        if (!queryParams.has('exclude')) {
+          queryParams.append('exclude', previouslyLoadedIds);
+        } else {
+          // Append to existing exclude parameter
+          const currentExclude = queryParams.get('exclude') || '';
+          queryParams.set('exclude', `${currentExclude},${previouslyLoadedIds}`);
+        }
+        console.log(`Also excluding ${previouslyLoadedDishIdsRef.current.size} previously loaded dishes`);
+      }
+      
+      const apiUrl = `/api/dishes?${queryParams.toString()}`;
+      console.log("Fetching additional dishes from:", apiUrl);
+      
+      const response = await fetch(apiUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch additional dishes: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log(`Received ${data.dishes?.length || 0} additional dishes from API`);
+      
+      if (!data.dishes || !Array.isArray(data.dishes) || data.dishes.length === 0) {
+        console.log("No additional dishes returned from API");
+        return;
+      }
+      
+      // Track these new dishes as "loaded" to avoid showing them again
+      data.dishes.forEach((dish: Dish) => {
+        if (dish.dish_id && typeof dish.dish_id === 'string') {
+          previouslyLoadedDishIdsRef.current.add(dish.dish_id);
+        }
+      });
+      
+      // Add new dishes to the end of current dishes
+      setCurrentDishes(prev => [...prev, ...data.dishes]);
+      console.log(`Added ${data.dishes.length} more dishes for ${mealTime}`);
+    } catch (error) {
+      console.error("Error loading additional dishes:", error);
+    } finally {
+      apiCallInProgressRef.current = false;
+    }
+  }, [mealTime, menu, swipedDishIds, user]);
+
+  // Load dishes when meal time changes - complete reset
+  useEffect(() => {
+    const loadNewDishes = async () => {
+      if (menu) {
+        console.log("Meal time or menu changed, loading new dishes");
+        previouslyLoadedDishIdsRef.current = new Set();
+        setCurrentDishes([]);
+        setIsLoading(true);
+        await loadDishes();
+      }
+    };
+    
+    loadNewDishes();
+  }, [mealTime, menu]); // Don't include loadDishes in dependencies
 
   // Cleanup on unmount
   useEffect(() => {
@@ -387,11 +473,6 @@ export const DishSwipeSection = ({
           </div>
         ) : (
           <>
-            {/* Debug info - remove in production */}
-            <div className="absolute top-0 right-0 text-xs text-muted-foreground bg-background/80 p-1 rounded z-10">
-              {currentDishes.length} dishes loaded
-            </div>
-            
             <DishStack 
               dishes={currentDishes}
               onSwipe={handleSwipe}
@@ -405,12 +486,6 @@ export const DishSwipeSection = ({
           </>
         )}
       </TabsContent>
-
-      <SwipeControls 
-        onSwipeLeft={() => currentDishes.length > 0 && handleSwipe(currentDishes[0], "left")}
-        onSwipeRight={() => currentDishes.length > 0 && handleSwipe(currentDishes[0], "right")}
-        disabled={currentDishes.length === 0 || isLoading}
-      />
     </div>
   );
 }; 

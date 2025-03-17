@@ -137,6 +137,7 @@ export default function SwipeWithMenuPage() {
     )
   }
 
+
   return (
     <div className="flex min-h-screen flex-col">
       <Header showBackButton title="Dish Swiper" />
