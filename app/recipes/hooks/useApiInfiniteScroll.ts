@@ -13,6 +13,16 @@ interface UseApiInfiniteScrollOptions {
   query?: string;
 }
 
+interface FilterOptions {
+  page: number;
+  limit: number;
+  category?: MealCategory;
+  preference?: DietPreference;
+  cuisine?: CuisineType;
+  query?: string;
+}
+
+
 export function useApiInfiniteScroll({
   initialPage = 1,
   itemsPerPage = 20,
@@ -63,7 +73,7 @@ export function useApiInfiniteScroll({
       console.log(`Fetching dishes with params: page=${pageToLoad}&limit=${itemsPerPage}`);
       
       // Prepare filter options
-      const options: any = {
+      const options: FilterOptions = {
         page: pageToLoad,
         limit: itemsPerPage
       };

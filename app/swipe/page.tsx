@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useApp } from "@/providers/app-provider"
 import { useToast } from "@/hooks/use-toast"
 
-export default function SwipeRedirectPage() {
+function SwipeContent() {
   const { activeMenu, loadMenu } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -73,6 +73,21 @@ export default function SwipeRedirectPage() {
         <p className="text-lg">Redirecting...</p>
       </div>
     </div>
+  )
+}
+
+export default function SwipeRedirectPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SwipeContent />
+    </Suspense>
   )
 }
 

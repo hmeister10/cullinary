@@ -1,8 +1,11 @@
+import type { Menu } from "@/lib/types/menu-types";
+
 // Local storage keys
 const USER_ID_KEY = 'cullinary_user_id';
 const USER_NAME_KEY = 'cullinary_user_name';
 const MENUS_KEY = 'cullinary_menus';
 const USER_PREFERENCES_KEY = 'cullinary_user_preferences';
+
 
 // Types
 interface StoredMenu {
@@ -15,6 +18,7 @@ interface StoredMenu {
 
 export interface DietaryPreferences {
   isVegetarian: boolean;
+  isVegan: boolean;
   dietType?: string;
   region?: string;
   healthTags?: string[];
@@ -29,9 +33,6 @@ export interface DietaryPreferences {
     other: string[];
   };
 }
-
-// Import Menu type from mock-data
-import { Menu } from './mock-data';
 
 // Check if localStorage is available
 const isLocalStorageAvailable = () => {

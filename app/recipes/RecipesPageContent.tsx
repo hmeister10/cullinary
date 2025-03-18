@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import type { Dish, MealCategory, DietPreference, CuisineType } from "@/lib/types/dish-types"
+import type { MealCategory, DietPreference, CuisineType } from "@/lib/types/dish-types"
 import { useToast } from "@/hooks/use-toast"
 import { motion } from "framer-motion"
 import { FilterSection } from "./components/FilterSection"

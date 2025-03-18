@@ -1,11 +1,11 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useApp } from "@/providers/app-provider"
 import { useToast } from "@/hooks/use-toast"
 
-export default function MenuRedirectPage() {
+function MenuContent() {
   const { activeMenu, loadMenu } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -73,5 +73,20 @@ export default function MenuRedirectPage() {
         <p className="text-lg">Redirecting...</p>
       </div>
     </div>
+  )
+}
+
+export default function MenuRedirectPage() {
+  return (
+    <Suspense fallback={
+      <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg">Loading...</p>
+        </div>
+      </div>
+    }>
+      <MenuContent />
+    </Suspense>
   )
 } 

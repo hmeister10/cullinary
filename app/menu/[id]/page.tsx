@@ -9,6 +9,8 @@ import { useRouter, useParams } from "next/navigation"
 import { Calendar, Download, Share2 } from "lucide-react"
 import Image from "next/image"
 import { format, addDays, parseISO } from "date-fns"
+import type { Dish } from "@/lib/types/dish-types"
+import { DishService } from "@/lib/services/dish-service"
 
 export default function MenuPage() {
   const { activeMenu, loadMenu, user, loading, hasSetName } = useApp()
@@ -18,6 +20,7 @@ export default function MenuPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const hasAttemptedLoad = useRef(false)
+  const [menuDishes, setMenuDishes] = useState<Record<string, Dish>>({})
 
   useEffect(() => {
     // Wait for user to be initialized before attempting to load menu
@@ -101,6 +104,35 @@ export default function MenuPage() {
     loadMenuData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, hasSetName]) // Add loading and hasSetName as dependencies
+
+  useEffect(() => {
+    // Skip if no menu is loaded yet
+    if (!activeMenu) return
+    
+    const loadDishDetails = async () => {
+      const dishService = DishService.getInstance()
+      const allDishIds = [
+        ...activeMenu.matches.breakfast,
+        ...activeMenu.matches.lunch, 
+        ...activeMenu.matches.dinner,
+        ...activeMenu.matches.snack
+      ].filter(Boolean)
+      
+      const dishMap: Record<string, Dish> = {}
+      
+      // Load each dish by ID
+      await Promise.all(allDishIds.map(async (dishId) => {
+        const dish = await dishService.getDishById(dishId)
+        if (dish) {
+          dishMap[dishId] = dish
+        }
+      }))
+      
+      setMenuDishes(dishMap)
+    }
+    
+    loadDishDetails()
+  }, [activeMenu])
 
   const shareMenu = () => {
     toast({
@@ -200,17 +232,21 @@ export default function MenuPage() {
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
                             src={
-                              activeMenu.matches.breakfast[dayIndex].image_url || "/placeholder.svg?height=64&width=64"
+                              (menuDishes[activeMenu.matches.breakfast[dayIndex]] 
+                                ? menuDishes[activeMenu.matches.breakfast[dayIndex]].image_url 
+                                : "/placeholder.svg?height=64&width=64")
                             }
-                            alt={activeMenu.matches.breakfast[dayIndex].name}
+                            alt={menuDishes[activeMenu.matches.breakfast[dayIndex]]?.name || "Breakfast item"}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.breakfast[dayIndex].name}</h3>
+                          <h3 className="font-medium text-sm">
+                            {menuDishes[activeMenu.matches.breakfast[dayIndex]]?.name || "Loading..."}
+                          </h3>
                           <p className="text-xs text-muted-foreground">
-                            {activeMenu.matches.breakfast[dayIndex].preference}
+                            {menuDishes[activeMenu.matches.breakfast[dayIndex]]?.preference || ""}
                           </p>
                         </div>
                       </div>
@@ -230,15 +266,23 @@ export default function MenuPage() {
                       <div className="flex flex-col space-y-2">
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
-                            src={activeMenu.matches.lunch[dayIndex].image_url || "/placeholder.svg?height=64&width=64"}
-                            alt={activeMenu.matches.lunch[dayIndex].name}
+                            src={
+                              (menuDishes[activeMenu.matches.lunch[dayIndex]] 
+                                ? menuDishes[activeMenu.matches.lunch[dayIndex]].image_url 
+                                : "/placeholder.svg?height=64&width=64")
+                            }
+                            alt={menuDishes[activeMenu.matches.lunch[dayIndex]]?.name || "Lunch item"}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.lunch[dayIndex].name}</h3>
-                          <p className="text-xs text-muted-foreground">{activeMenu.matches.lunch[dayIndex].preference}</p>
+                          <h3 className="font-medium text-sm">
+                            {menuDishes[activeMenu.matches.lunch[dayIndex]]?.name || "Loading..."}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            {menuDishes[activeMenu.matches.lunch[dayIndex]]?.preference || ""}
+                          </p>
                         </div>
                       </div>
                     ) : (
@@ -257,16 +301,22 @@ export default function MenuPage() {
                       <div className="flex flex-col space-y-2">
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
-                            src={activeMenu.matches.dinner[dayIndex].image_url || "/placeholder.svg?height=64&width=64"}
-                            alt={activeMenu.matches.dinner[dayIndex].name}
+                            src={
+                              (menuDishes[activeMenu.matches.dinner[dayIndex]] 
+                                ? menuDishes[activeMenu.matches.dinner[dayIndex]].image_url 
+                                : "/placeholder.svg?height=64&width=64")
+                            }
+                            alt={menuDishes[activeMenu.matches.dinner[dayIndex]]?.name || "Dinner item"}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.dinner[dayIndex].name}</h3>
+                          <h3 className="font-medium text-sm">
+                            {menuDishes[activeMenu.matches.dinner[dayIndex]]?.name || "Loading..."}
+                          </h3>
                           <p className="text-xs text-muted-foreground">
-                            {activeMenu.matches.dinner[dayIndex].preference}
+                            {menuDishes[activeMenu.matches.dinner[dayIndex]]?.preference || ""}
                           </p>
                         </div>
                       </div>
@@ -286,15 +336,23 @@ export default function MenuPage() {
                       <div className="flex flex-col space-y-2">
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
-                            src={activeMenu.matches.snack[dayIndex].image_url || "/placeholder.svg?height=64&width=64"}
-                            alt={activeMenu.matches.snack[dayIndex].name}
+                            src={
+                              (menuDishes[activeMenu.matches.snack[dayIndex]] 
+                                ? menuDishes[activeMenu.matches.snack[dayIndex]].image_url 
+                                : "/placeholder.svg?height=64&width=64")
+                            }
+                            alt={menuDishes[activeMenu.matches.snack[dayIndex]]?.name || "Snack item"}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.snack[dayIndex].name}</h3>
-                          <p className="text-xs text-muted-foreground">{activeMenu.matches.snack[dayIndex].preference}</p>
+                          <h3 className="font-medium text-sm">
+                            {menuDishes[activeMenu.matches.snack[dayIndex]]?.name || "Loading..."}
+                          </h3>
+                          <p className="text-xs text-muted-foreground">
+                            {menuDishes[activeMenu.matches.snack[dayIndex]]?.preference || ""}
+                          </p>
                         </div>
                       </div>
                     ) : (

@@ -45,3 +45,12 @@ export interface Dish {
   calories?: number
   description?: string
 } 
+
+
+export interface CSVParseOptions {
+  columns?: boolean;
+  skip_empty_lines?: boolean;
+  from?: number;
+  to?: number;
+  relax_quotes?: boolean;
+}

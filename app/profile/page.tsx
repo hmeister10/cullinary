@@ -10,6 +10,7 @@ import { DetailedProfile } from "./components/DetailedProfile"
 // Define the dietary preferences interface
 interface DietaryPreferences {
   isVegetarian: boolean;
+  isVegan: boolean;
   dietType: string;
   region: string;
   healthTags: string[];
@@ -33,6 +34,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("")
   const [preferences, setPreferences] = useState<Partial<DietaryPreferences>>({
     isVegetarian: false,
+    isVegan: false,
     dietType: "",
     region: "",
     healthTags: [],
@@ -147,14 +149,20 @@ export default function ProfilePage() {
         name: profileData.name,
         dietaryPreferences: {
           isVegetarian: profileData.isVegetarian,
+          isVegan: profileData.dietType === "vegan",
           dietType: profileData.dietType,
           region: profileData.region,
-          healthTags: profileData.healthTags,
-          cuisinePreferences: profileData.cuisinePreferences,
-          proteinPreferences: profileData.proteinPreferences,
-          specificPreferences: profileData.specificPreferences,
-          avoidances: profileData.avoidances,
-          occasionBasedDiet: profileData.occasionBasedDiet
+          healthTags: profileData.healthTags || [],
+          cuisinePreferences: profileData.cuisinePreferences || [],
+          proteinPreferences: profileData.proteinPreferences || [],
+          specificPreferences: profileData.specificPreferences || [],
+          avoidances: profileData.avoidances || [],
+          occasionBasedDiet: profileData.occasionBasedDiet || {
+            enabled: false,
+            days: [],
+            festivals: [],
+            other: []
+          }
         }
       })
       

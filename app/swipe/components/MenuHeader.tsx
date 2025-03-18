@@ -18,9 +18,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Share2, Users, MoreHorizontal, Home } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { Menu, MenuDish } from "@/lib/types/menu-types"
 
 interface MenuHeaderProps {
-  menu: any; // Replace with proper menu type when available
+  menu?: Menu; // Make menu optional with proper TypeScript syntax
 }
 
 export function MenuHeader({ menu }: MenuHeaderProps) {
@@ -31,16 +32,16 @@ export function MenuHeader({ menu }: MenuHeaderProps) {
 
   // Calculate completion percentage
   const totalDishes = menu.dishes?.length || 0
-  const swipedDishes = menu.dishes?.filter((dish: any) => dish.swiped)?.length || 0
+  const swipedDishes = menu.dishes?.filter((dish: MenuDish) => dish.swiped)?.length || 0
   const completionPercentage = totalDishes > 0 ? Math.round((swipedDishes / totalDishes) * 100) : 0
 
   // Handle share menu
   const handleShare = () => {
-    const url = `${window.location.origin}/swipe?menu=${menu.id}`
+    const url = `${window.location.origin}/swipe?menu=${menu.menu_id}`
     
     if (navigator.share) {
       navigator.share({
-        title: `Join my menu: ${menu.name}`,
+        title: `Join my menu: ${menu.menu_id}`,
         text: `Join my menu to help plan our meal!`,
         url: url,
       }).catch(console.error)
@@ -59,7 +60,7 @@ export function MenuHeader({ menu }: MenuHeaderProps) {
   return (
     <div className="w-full max-w-md mb-6">
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-xl font-bold truncate">{menu.name || "Menu"}</h1>
+        <h1 className="text-xl font-bold truncate">{menu.menu_id || "Menu"}</h1>
         
         <div className="flex items-center gap-2">
           <TooltipProvider>
@@ -115,7 +116,7 @@ export function MenuHeader({ menu }: MenuHeaderProps) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href={`/results?menu=${menu.id}`}>
+                <Link href={`/results?menu=${menu.menu_id}`}>
                   View Results
                 </Link>
               </DropdownMenuItem>

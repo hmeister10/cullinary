@@ -1,5 +1,4 @@
 import { Dish, MealCategory, DietPreference, CuisineType } from "@/lib/types/dish-types"
-import { dishes } from "@/lib/data/mock-dishes"
 import { ApiDishDataSource } from "./api-dish-data-source"
 
 /**
@@ -12,59 +11,12 @@ interface DishDataSource {
   getDishByPreference(preference: DietPreference): Promise<Dish[]>
   getDishByCuisine(cuisine: CuisineType): Promise<Dish[]>
   searchDishes(query: string): Promise<Dish[]>
-}
-
-/**
- * Mock implementation of DishDataSource using hardcoded data
- */
-class MockDishDataSource implements DishDataSource {
-  async getAllDishes(): Promise<Dish[]> {
-    return dishes
-  }
-
-  async getDishById(id: string): Promise<Dish | undefined> {
-    return dishes.find(dish => dish.dish_id === id)
-  }
-
-  async getDishByCategory(category: MealCategory): Promise<Dish[]> {
-    return dishes.filter(dish => dish.category === category)
-  }
-
-  async getDishByPreference(preference: DietPreference): Promise<Dish[]> {
-    return dishes.filter(dish => dish.preference === preference)
-  }
-
-  async getDishByCuisine(cuisine: CuisineType): Promise<Dish[]> {
-    return dishes.filter(dish => dish.cuisines.includes(cuisine))
-  }
-
-  async searchDishes(query: string): Promise<Dish[]> {
-    const lowercaseQuery = query.toLowerCase()
-    
-    return dishes.filter(dish => {
-      // Search in name
-      if (dish.name.toLowerCase().includes(lowercaseQuery)) {
-        return true
-      }
-      
-      // Search in ingredients
-      if (dish.ingredients.some(ing => ing.toLowerCase().includes(lowercaseQuery))) {
-        return true
-      }
-      
-      // Search in cuisines
-      if (dish.cuisines.some(cuisine => cuisine.toLowerCase().includes(lowercaseQuery))) {
-        return true
-      }
-      
-      // Search in description
-      if (dish.description?.toLowerCase().includes(lowercaseQuery)) {
-        return true
-      }
-      
-      return false
-    })
-  }
+  getDishesByCategory(category: MealCategory): Promise<Dish[]>
+  getDishesByDietaryPreference(preference: DietPreference): Promise<Dish[]>
+  getDishesByCuisine(cuisine: CuisineType): Promise<Dish[]>
+  getDishesBySpiceLevel(level: number): Promise<Dish[]>
+  getDishesByIngredient(ingredient: string): Promise<Dish[]>
+  getDishesByCuisineType(cuisine: CuisineType): Promise<Dish[]>
 }
 
 /**
@@ -77,12 +29,34 @@ export class DishService {
   private dataSource: DishDataSource
 
   private constructor() {
-    // Initialize with API data source
-    // This works in both client and server components
-    this.dataSource = new ApiDishDataSource()
+    // Create an adapter for the API data source that implements all required methods
+    const apiDataSource = new ApiDishDataSource();
     
-    // Uncomment to use mock data instead
-    // this.dataSource = new MockDishDataSource()
+    // Create a complete implementation of DishDataSource using the apiDataSource
+    this.dataSource = {
+      // Pass through the methods that already exist in ApiDishDataSource
+      getAllDishes: () => apiDataSource.getAllDishes(),
+      getDishById: (id: string) => apiDataSource.getDishById(id),
+      getDishByCategory: (category: MealCategory) => apiDataSource.getDishByCategory(category),
+      getDishByPreference: (preference: DietPreference) => apiDataSource.getDishByPreference(preference),
+      getDishByCuisine: (cuisine: CuisineType) => apiDataSource.getDishByCuisine(cuisine),
+      searchDishes: (query: string) => apiDataSource.searchDishes(query),
+      
+      // Add the methods that don't exist in ApiDishDataSource
+      getDishesByCategory: (category: MealCategory) => apiDataSource.getDishByCategory(category),
+      getDishesByDietaryPreference: (preference: DietPreference) => apiDataSource.getDishByPreference(preference),
+      getDishesByCuisine: (cuisine: CuisineType) => apiDataSource.getDishByCuisine(cuisine),
+      getDishesBySpiceLevel: async (level: number) => {
+        const dishes = await apiDataSource.getAllDishes();
+        if (level === 0) return dishes;
+        return dishes.filter(dish => dish.spice_level === String(level));
+      },
+      getDishesByIngredient: async (ingredient: string) => {
+        const dishes = await apiDataSource.getAllDishes();
+        return dishes.filter(dish => dish.ingredients.includes(ingredient));
+      },
+      getDishesByCuisineType: (cuisine: CuisineType) => apiDataSource.getDishByCuisine(cuisine)
+    };
   }
 
   /**
@@ -152,7 +126,7 @@ export class DishService {
     if (category === "All") {
       return this.dataSource.getAllDishes()
     }
-    return this.dataSource.getDishByCategory(category)
+    return this.dataSource.getDishesByCategory(category)
   }
 
   /**
@@ -162,14 +136,14 @@ export class DishService {
     if (preference === "All") {
       return this.dataSource.getAllDishes()
     }
-    return this.dataSource.getDishByPreference(preference)
+    return this.dataSource.getDishesByDietaryPreference(preference)
   }
 
   /**
    * Get dishes by cuisine
    */
   public async getDishesByCuisine(cuisine: CuisineType): Promise<Dish[]> {
-    return this.dataSource.getDishByCuisine(cuisine)
+    return this.dataSource.getDishesByCuisine(cuisine)
   }
 
   /**
@@ -183,10 +157,15 @@ export class DishService {
   /**
    * Get dishes by spice level
    */
-  public async getDishesBySpiceLevel(level: "Mild" | "Medium" | "Spicy" | "All"): Promise<Dish[]> {
-    const dishes = await this.dataSource.getAllDishes()
-    if (level === "All") return dishes
-    return dishes.filter(dish => dish.spice_level === level)
+  public async getDishesBySpiceLevel(level: "Mild" | "Medium" | "Spicy" | "All" | number): Promise<Dish[]> {
+    if (level === "All") return this.dataSource.getAllDishes();
+    
+    if (typeof level === "number") {
+      return this.dataSource.getDishesBySpiceLevel(level);
+    }
+    
+    const dishes = await this.dataSource.getAllDishes();
+    return dishes.filter(dish => dish.spice_level === level);
   }
 
   /**
@@ -195,6 +174,14 @@ export class DishService {
   public async getQuickDishes(): Promise<Dish[]> {
     const dishes = await this.dataSource.getAllDishes()
     return dishes.filter(dish => dish.preparation_time !== undefined && dish.preparation_time <= 15)
+  }
+
+  async getDishesByIngredient(ingredient: string): Promise<Dish[]> {
+    return this.dataSource.getDishesByIngredient(ingredient)
+  }
+
+  async getDishesByCuisineType(cuisine: CuisineType): Promise<Dish[]> {
+    return this.dataSource.getDishesByCuisineType(cuisine)
   }
 }
 

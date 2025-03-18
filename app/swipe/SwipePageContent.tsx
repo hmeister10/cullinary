@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useApp } from "@/providers/app-provider"
 import { useRouter, useSearchParams } from "next/navigation"
-import type { Dish } from "@/lib/types/dish-types"
 import { UserNameForm } from "@/components/user-name-form"
 import { Tabs } from "@/components/ui/tabs"
 import { MenuHeader } from "./components/MenuHeader"
@@ -121,11 +120,27 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
     );
   }
 
+  if (!activeMenu) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p>No menu found. Please return to the home page.</p>
+          <button 
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
+            onClick={() => router.push("/")}
+          >
+            Return Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container flex flex-col items-center min-h-screen py-6 px-4">
       {/* Menu Header - Shows menu completion, participants, quick links */}
       <MenuHeader menu={activeMenu} />
-      
+
       <div className="w-full max-w-md mx-auto">
         <Tabs value={currentMealTime} onValueChange={handleMealTimeChange} className="w-full">
           {/* Meal Time Tabs - Breakfast, Lunch, Dinner, Snack */}

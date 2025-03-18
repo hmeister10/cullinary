@@ -2,7 +2,7 @@
 
 import { motion, AnimatePresence } from "framer-motion"
 import { Heart } from "lucide-react"
-import { Dish } from "@/lib/mock-data"
+import { Dish } from "@/lib/types/dish-types"
 import { memo } from "react"
 
 interface HeartAnimationProps {

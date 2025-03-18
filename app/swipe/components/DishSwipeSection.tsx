@@ -7,10 +7,12 @@ import type { Dish } from "@/lib/types/dish-types"
 import DishStack from "../DishStack"
 import { Button } from "@/components/ui/button"
 import { TabsContent } from "@/components/ui/tabs"
+import { Menu } from "@/lib/types/menu-types"
+
 
 interface DishSwipeSectionProps {
   mealTime: string;
-  menu: any; // Using any for now, should be properly typed
+  menu: Menu; // Using any for now, should be properly typed
 }
 
 export const DishSwipeSection = ({ 
@@ -34,9 +36,11 @@ export const DishSwipeSection = ({
     
     const allSwipedDishIds = new Set<string>();
     
-    Object.values(menu.matches).forEach((dishes: any) => {
-      dishes.forEach((dish: Dish) => {
-        allSwipedDishIds.add(dish.dish_id);
+    Object.values(menu.matches).forEach((dishIds: string[]) => {
+      dishIds.forEach((dishId: string) => {
+        if (dishId) {
+          allSwipedDishIds.add(dishId);
+        }
       });
     });
     
@@ -457,7 +461,7 @@ export const DishSwipeSection = ({
           <div className="flex flex-col items-center justify-center h-full space-y-4">
             <p>No dishes available for {mealTime.charAt(0).toUpperCase() + mealTime.slice(1)}.</p>
             <p className="text-sm text-muted-foreground text-center max-w-xs">
-              We couldn't find dishes matching your preferences for this category.
+              We couldn&apos;t find dishes matching your preferences for this category.
             </p>
             <div className="flex flex-col space-y-2">
               <Button onClick={handleRefresh}>
@@ -480,7 +484,12 @@ export const DishSwipeSection = ({
               onRefresh={handleRefresh}
               showLikeAnimation={showLikeAnimation}
               lastLikedDish={lastLikedDish}
-              userPreferences={user?.dietaryPreferences}
+              userPreferences={user?.dietaryPreferences ? {
+                ...user.dietaryPreferences,
+                diet: 'any',  // Add missing required properties
+                cuisine: 'any',
+                spice: 'medium'
+              } : undefined}
               swipedDishIds={Array.from(swipedDishIds)}
             />
           </>

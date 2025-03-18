@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button"
 import DishCard from "./DishCard"
 import { memo } from "react"
 
+interface UserPreferences {
+  diet: string;
+  cuisine: string;
+  spice: string;
+  // Add other user preferences as needed
+}
+
 interface DishStackProps {
   dishes: Dish[];
   onSwipe: (dish: Dish, direction: string) => void;
@@ -12,7 +19,7 @@ interface DishStackProps {
   onRefresh: () => void;
   showLikeAnimation: boolean;
   lastLikedDish: Dish | null;
-  userPreferences?: any;
+  userPreferences?: UserPreferences;
   swipedDishIds?: string[];
 }
 
@@ -21,7 +28,6 @@ const DishStack = memo(({
   onSwipe, 
   isLoading, 
   onRefresh,
-  userPreferences
 }: DishStackProps) => {
   console.log("DishStack rendered with dishes:", dishes.length);
 

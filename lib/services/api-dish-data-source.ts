@@ -1,15 +1,18 @@
 import { Dish, MealCategory, DietPreference, CuisineType } from "@/lib/types/dish-types";
 
+// Define a type for pagination data
+type PaginationData = {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
+};
+
 // Pagination response interface
 interface PaginatedResponse<T> {
   dishes: T[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    hasMore: boolean;
-  };
+  pagination: PaginationData;
 }
 
 /**
@@ -20,7 +23,7 @@ export class ApiDishDataSource {
   private baseUrl: string;
   private dishesCache: Map<string, Dish[]> = new Map();
   private singleDishCache: Map<string, Dish> = new Map();
-  private paginationCache: Map<string, any> = new Map();
+  private paginationCache: Map<string, PaginationData> = new Map();
 
   constructor(baseUrl?: string) {
     // Default to relative URL if not provided
@@ -95,9 +98,11 @@ export class ApiDishDataSource {
           const errorData = await response.json();
           errorDetails = JSON.stringify(errorData);
         } catch (e) {
+          console.error('Error fetching dishes:', e);
           try {
             errorDetails = await response.text();
           } catch (e2) {
+            console.error('Error fetching dishes:', e2);
             errorDetails = 'Could not extract error details';
           }
         }

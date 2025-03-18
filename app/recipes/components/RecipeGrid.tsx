@@ -43,7 +43,7 @@ export function RecipeGrid({
       // If we already have this dish ID, append a unique suffix
       if (map.has(dish.dish_id)) {
         // Create a unique key by adding an index
-        let uniqueId = `${dish.dish_id}_${Math.random().toString(36).substring(2, 9)}`;
+        const uniqueId = `${dish.dish_id}_${Math.random().toString(36).substring(2, 9)}`;
         map.set(uniqueId, {...dish, dish_id: uniqueId});
       } else {
         map.set(dish.dish_id, dish);
@@ -80,7 +80,7 @@ export function RecipeGrid({
         </motion.div>
         <h3 className="text-xl font-medium mb-2">No recipes found</h3>
         <p className="text-muted-foreground">
-          Try adjusting your search or filters to find what you're looking for
+          Try adjusting your search or filters to find what you&apos;re looking for
         </p>
       </motion.div>
     )
@@ -130,7 +130,7 @@ export function RecipeGrid({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            You've reached the end of the collection
+            You&apos;ve reached the end of the collection
           </motion.p>
         )}
       </div>

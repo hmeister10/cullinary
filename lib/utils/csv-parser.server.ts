@@ -2,14 +2,14 @@
 import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
-
+import type { CSVParseOptions } from '@/lib/types/dish-types';
 /**
  * Read and parse a CSV file (server-side only)
  * @param filePath Path to the CSV file
  * @param options CSV parse options
  * @returns Parsed CSV data as an array of objects
  */
-export function readCsvFile<T>(filePath: string, options: any = {}): T[] {
+export function readCsvFile<T>(filePath: string, options: CSVParseOptions = {}): T[] {
   try {
     // Resolve the file path
     const resolvedPath = path.isAbsolute(filePath) 
@@ -44,7 +44,7 @@ export async function readCsvFileInChunks<T>(
   filePath: string, 
   chunkSize: number,
   callback: (chunk: T[], isLastChunk: boolean) => Promise<void>,
-  options: any = {}
+  options: CSVParseOptions = {}
 ): Promise<void> {
   try {
     // Resolve the file path

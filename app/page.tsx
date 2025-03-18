@@ -104,6 +104,7 @@ export default function HomePage() {
     // Map quick setup preferences to our format
     const mappedPreferences = {
       isVegetarian: ["pure-veg", "egg-veg", "vegan", "jain", "sattvic"].includes(quickPreferences.dietType),
+      isVegan: quickPreferences.dietType === "vegan",
       dietType: quickPreferences.dietType,
       region: quickPreferences.region,
       healthTags: quickPreferences.healthTags,
@@ -433,7 +434,7 @@ export default function HomePage() {
                     </div>
                     <h3 className="text-xl font-medium mb-2">No featured dishes</h3>
                     <p className="text-muted-foreground mb-6 max-w-md">
-                      We couldn't load any featured dishes at the moment
+                      We couldn&apos;t load any featured dishes at the moment
                     </p>
                     <Button onClick={() => router.push('/recipes')}>
                       Browse All Recipes
