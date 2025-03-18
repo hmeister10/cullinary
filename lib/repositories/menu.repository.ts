@@ -8,7 +8,7 @@ export class MenuRepository extends BaseRepository {
   }
 
   async createMenu(startDate: Date, endDate: Date, userId: string): Promise<string> {
-    const menuId = `MENU_${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    const menuId = Math.random().toString(36).substring(2, 8).toUpperCase();
     
     const menuData: FirestoreMenu = {
       menu_id: menuId,
