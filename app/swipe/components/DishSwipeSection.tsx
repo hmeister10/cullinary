@@ -95,25 +95,12 @@ export const DishSwipeSection = ({
         queryParams.append('preference', 'Veg');
       }
       
-      // 3. Filter out already seen dishes
-      // Add already swiped dish IDs to exclude them from results
+      // 3. Only filter out already swiped dishes through the API
+      // We'll handle excluding already loaded dishes client-side
       if (swipedDishIds.size > 0) {
         const swipedIds = Array.from(swipedDishIds).join(',');
         queryParams.append('exclude', swipedIds);
         console.log(`Excluding ${swipedDishIds.size} already swiped dishes`);
-      }
-      
-      // Also exclude previously loaded dishes
-      if (previouslyLoadedDishIdsRef.current.size > 0) {
-        const previouslyLoadedIds = Array.from(previouslyLoadedDishIdsRef.current).join(',');
-        if (!queryParams.has('exclude')) {
-          queryParams.append('exclude', previouslyLoadedIds);
-        } else {
-          // Append to existing exclude parameter
-          const currentExclude = queryParams.get('exclude') || '';
-          queryParams.set('exclude', `${currentExclude},${previouslyLoadedIds}`);
-        }
-        console.log(`Also excluding ${previouslyLoadedDishIdsRef.current.size} previously loaded dishes`);
       }
       
       const apiUrl = `/api/dishes?${queryParams.toString()}`;
@@ -128,21 +115,70 @@ export const DishSwipeSection = ({
       const data = await response.json();
       console.log(`Received ${data.dishes?.length || 0} dishes from API`);
       
+      // Log the IDs and names of dishes received
+      console.log("DISHES RECEIVED FROM API:", data.dishes?.map((d: Dish) => 
+        `${d.dish_id}: ${d.name}`
+      ));
+      
       if (!data.dishes || !Array.isArray(data.dishes) || data.dishes.length === 0) {
         console.log("No dishes returned from API or empty array received");
         setCurrentDishes([]);
         return;
       }
       
-      // Track these new dishes as "loaded" to avoid showing them again
-      data.dishes.forEach((dish: Dish) => {
+      // Filter out already loaded dishes client-side
+      const newDishes = data.dishes.filter((dish: Dish) => 
+        dish.dish_id && !previouslyLoadedDishIdsRef.current.has(dish.dish_id)
+      );
+      
+      console.log(`Filtered down to ${newDishes.length} new dishes that weren't already loaded`);
+      
+      // Log the IDs and names of new dishes after filtering
+      console.log("NEW DISHES AFTER FILTERING:", newDishes.map((d: Dish) => 
+        `${d.dish_id}: ${d.name}`
+      ));
+      
+      // If we didn't get any new dishes, try different parameters to get variety
+      if (newDishes.length === 0) {
+        console.log("All returned dishes were already loaded, clearing tracking to show more variety");
+        // Reset the tracking of previously loaded dishes
+        previouslyLoadedDishIdsRef.current = new Set();
+        
+        // Keep track of already swiped dishes to avoid reshowing them
+        swipedDishIds.forEach(id => {
+          previouslyLoadedDishIdsRef.current.add(id);
+        });
+        
+        console.log("Dish tracking reset, using original dishes with improved variety");
+        
+        // Use the dishes we got even if we've seen them before, but filter out swiped ones
+        const nonSwipedDishes = data.dishes.filter((dish: Dish) => 
+          dish.dish_id && !swipedDishIds.has(dish.dish_id)
+        );
+        
+        console.log(`Found ${nonSwipedDishes.length} dishes that haven't been swiped on yet`);
+        
+        // Track these dishes as "loaded"
+        nonSwipedDishes.forEach((dish: Dish) => {
+          if (dish.dish_id && typeof dish.dish_id === 'string') {
+            previouslyLoadedDishIdsRef.current.add(dish.dish_id);
+          }
+        });
+        
+        setCurrentDishes(nonSwipedDishes);
+        console.log(`Loaded ${nonSwipedDishes.length} dishes with reset tracking`);
+        return;
+      }
+      
+      // Track these new dishes as "loaded"
+      newDishes.forEach((dish: Dish) => {
         if (dish.dish_id && typeof dish.dish_id === 'string') {
           previouslyLoadedDishIdsRef.current.add(dish.dish_id);
         }
       });
       
-      setCurrentDishes(data.dishes);
-      console.log(`Loaded ${data.dishes.length} dishes for ${mealTime}`);
+      setCurrentDishes(newDishes);
+      console.log(`Loaded ${newDishes.length} dishes for ${mealTime}`);
     } catch (error) {
       console.error("Error loading dishes:", error);
       toast({
@@ -253,13 +289,18 @@ export const DishSwipeSection = ({
     // Clear previously loaded dishes to get a fresh set
     previouslyLoadedDishIdsRef.current = new Set();
     
+    // Keep track of already swiped dishes to avoid reshowing them
+    swipedDishIds.forEach(id => {
+      previouslyLoadedDishIdsRef.current.add(id);
+    });
+    
     // Set loading state
     setIsLoading(true);
     setCurrentDishes([]);
     
     // Load dishes with normal filters
     loadDishes();
-  }, [loadDishes]);
+  }, [loadDishes, swipedDishIds]);
 
   // Handle dish swipe
   const handleSwipe = useCallback(async (dish: Dish, direction: string) => {
@@ -338,6 +379,8 @@ export const DishSwipeSection = ({
   // Function to load more dishes without resetting current dishes
   const loadDishesWithoutReset = useCallback(async () => {
     console.log(`Loading more dishes for current meal time: ${mealTime}`);
+    console.log(`Currently loaded dishes: ${currentDishes.length}`);
+    console.log(`Previously loaded dish IDs count: ${previouslyLoadedDishIdsRef.current.size}`);
     
     if (apiCallInProgressRef.current) {
       console.log("API call already in progress, skipping");
@@ -360,33 +403,30 @@ export const DishSwipeSection = ({
       // 1. Load dishes for the selected time of day
       const capitalizedMealTime = mealTime.charAt(0).toUpperCase() + mealTime.slice(1);
       queryParams.append('category', capitalizedMealTime);
-      queryParams.append('limit', '10'); // Smaller limit for adding more
+      queryParams.append('limit', '30'); // Increased limit to get more dishes
       
       // 2. Apply user preferences
       if (user?.dietaryPreferences?.isVegetarian) {
         queryParams.append('preference', 'Veg');
       }
       
-      // 3. Filter out already seen dishes
-      // Add already swiped dish IDs to exclude them from results
+      // 3. Only filter out already swiped dishes through the API
+      // We'll handle excluding already loaded dishes client-side
       if (swipedDishIds.size > 0) {
         const swipedIds = Array.from(swipedDishIds).join(',');
         queryParams.append('exclude', swipedIds);
         console.log(`Excluding ${swipedDishIds.size} already swiped dishes`);
       }
       
-      // Also exclude previously loaded dishes
-      if (previouslyLoadedDishIdsRef.current.size > 0) {
-        const previouslyLoadedIds = Array.from(previouslyLoadedDishIdsRef.current).join(',');
-        if (!queryParams.has('exclude')) {
-          queryParams.append('exclude', previouslyLoadedIds);
-        } else {
-          // Append to existing exclude parameter
-          const currentExclude = queryParams.get('exclude') || '';
-          queryParams.set('exclude', `${currentExclude},${previouslyLoadedIds}`);
-        }
-        console.log(`Also excluding ${previouslyLoadedDishIdsRef.current.size} previously loaded dishes`);
-      }
+      // Use proper pagination to get different dishes each time
+      // Calculate a page number based on how many dishes we've already loaded
+      const loadedDishCount = previouslyLoadedDishIdsRef.current.size;
+      // Start from page 1, then page 2, etc. as we load more dishes
+      // We use Math.floor(loadedDishCount / 30) + 1 to get the next page number
+      // For example: 0-29 dishes → page 1, 30-59 dishes → page 2, etc.
+      const pageNumber = Math.floor(loadedDishCount / 30) + 1;
+      queryParams.append('page', pageNumber.toString());
+      console.log(`Using pagination strategy - requesting page ${pageNumber}`);
       
       const apiUrl = `/api/dishes?${queryParams.toString()}`;
       console.log("Fetching additional dishes from:", apiUrl);
@@ -399,28 +439,188 @@ export const DishSwipeSection = ({
       
       const data = await response.json();
       console.log(`Received ${data.dishes?.length || 0} additional dishes from API`);
+      console.log(`API returned pagination info:`, data.pagination);
+      
+      // Log the IDs and names of dishes received
+      console.log("ADDITIONAL DISHES RECEIVED FROM API:", data.dishes?.map((d: Dish) => 
+        `${d.dish_id}: ${d.name}`
+      ));
       
       if (!data.dishes || !Array.isArray(data.dishes) || data.dishes.length === 0) {
         console.log("No additional dishes returned from API");
+        
+        // If we're at the last page according to pagination, reset and start over
+        if (data.pagination && pageNumber >= data.pagination.totalPages) {
+          console.log(`Reached the last page (${pageNumber} of ${data.pagination.totalPages}), resetting dish tracking`);
+          previouslyLoadedDishIdsRef.current = new Set();
+          
+          // Keep track of already swiped dishes
+          swipedDishIds.forEach(id => {
+            previouslyLoadedDishIdsRef.current.add(id);
+          });
+          
+          toast({
+            title: "Starting Over",
+            description: "You've seen all available dishes for this category. Showing them again.",
+          });
+          
+          // Load the first page again
+          queryParams.set('page', '1'); 
+          const resetApiUrl = `/api/dishes?${queryParams.toString()}`;
+          const resetResponse = await fetch(resetApiUrl);
+          
+          if (!resetResponse.ok) {
+            throw new Error(`Failed to fetch reset dishes: ${resetResponse.statusText}`);
+          }
+          
+          const resetData = await resetResponse.json();
+          
+          if (resetData.dishes && resetData.dishes.length > 0) {
+            // Filter out swiped dishes
+            const nonSwipedDishes = resetData.dishes.filter((dish: Dish) => 
+              dish.dish_id && !swipedDishIds.has(dish.dish_id)
+            );
+            
+            if (nonSwipedDishes.length > 0) {
+              setCurrentDishes(prev => [...prev, ...nonSwipedDishes]);
+              console.log(`Added ${nonSwipedDishes.length} dishes after resetting pagination`);
+              
+              // Track these dishes as "loaded"
+              nonSwipedDishes.forEach((dish: Dish) => {
+                if (dish.dish_id && typeof dish.dish_id === 'string') {
+                  previouslyLoadedDishIdsRef.current.add(dish.dish_id);
+                }
+              });
+            }
+          }
+        }
+        
         return;
       }
       
-      // Track these new dishes as "loaded" to avoid showing them again
-      data.dishes.forEach((dish: Dish) => {
+      // Filter out already loaded dishes client-side
+      const newDishes = data.dishes.filter((dish: Dish) => 
+        dish.dish_id && !previouslyLoadedDishIdsRef.current.has(dish.dish_id)
+      );
+      
+      console.log(`Filtered down to ${newDishes.length} new dishes that weren't already loaded`);
+      
+      // Log the IDs and names of new dishes after filtering
+      console.log("NEW ADDITIONAL DISHES AFTER FILTERING:", newDishes.map((d: Dish) => 
+        `${d.dish_id}: ${d.name}`
+      ));
+      
+      if (newDishes.length === 0) {
+        console.log("All returned dishes were already loaded, checking pagination info");
+        
+        // Check if we've gone through all pages
+        if (data.pagination && pageNumber >= data.pagination.totalPages) {
+          console.log(`Reached the last page (${pageNumber} of ${data.pagination.totalPages}), resetting dish tracking`);
+          previouslyLoadedDishIdsRef.current = new Set();
+          
+          // Keep track of already swiped dishes
+          swipedDishIds.forEach(id => {
+            previouslyLoadedDishIdsRef.current.add(id);
+          });
+          
+          console.log("Dish tracking reset except for swiped dishes");
+          
+          // Try loading the first page again after reset
+          queryParams.set('page', '1');
+          const resetApiUrl = `/api/dishes?${queryParams.toString()}`;
+          const resetResponse = await fetch(resetApiUrl);
+          
+          if (!resetResponse.ok) {
+            throw new Error(`Failed to fetch reset dishes: ${resetResponse.statusText}`);
+          }
+          
+          const resetData = await resetResponse.json();
+          
+          // Filter out swiped dishes
+          const nonSwipedDishes = resetData.dishes.filter((dish: Dish) => 
+            dish.dish_id && !swipedDishIds.has(dish.dish_id)
+          );
+          
+          console.log(`Found ${nonSwipedDishes.length} dishes after reset that haven't been swiped on yet`);
+          
+          if (nonSwipedDishes.length > 0) {
+            // Track these dishes as "loaded"
+            nonSwipedDishes.forEach((dish: Dish) => {
+              if (dish.dish_id && typeof dish.dish_id === 'string') {
+                previouslyLoadedDishIdsRef.current.add(dish.dish_id);
+              }
+            });
+            
+            // Add these to the current dishes
+            setCurrentDishes(prev => [...prev, ...nonSwipedDishes]);
+            console.log(`Added ${nonSwipedDishes.length} dishes after pagination reset`);
+            
+            toast({
+              title: "More Dishes Found",
+              description: `Added ${nonSwipedDishes.length} more dishes for you to swipe on.`,
+            });
+          } else {
+            // If still no dishes, show an informative message
+            toast({
+              title: "No New Dishes",
+              description: "You've seen all available dishes for this category. Try a different meal time or refresh.",
+            });
+          }
+          return;
+        } else {
+          // Try the next page
+          console.log(`No new dishes on page ${pageNumber}, trying the next page`);
+          const nextPage = pageNumber + 1;
+          queryParams.set('page', nextPage.toString());
+          
+          const nextPageApiUrl = `/api/dishes?${queryParams.toString()}`;
+          const nextPageResponse = await fetch(nextPageApiUrl);
+          
+          if (!nextPageResponse.ok) {
+            throw new Error(`Failed to fetch next page dishes: ${nextPageResponse.statusText}`);
+          }
+          
+          const nextPageData = await nextPageResponse.json();
+          
+          if (nextPageData.dishes && nextPageData.dishes.length > 0) {
+            // Filter out already loaded dishes
+            const nextPageNewDishes = nextPageData.dishes.filter((dish: Dish) => 
+              dish.dish_id && !previouslyLoadedDishIdsRef.current.has(dish.dish_id)
+            );
+            
+            if (nextPageNewDishes.length > 0) {
+              // Track these dishes as "loaded"
+              nextPageNewDishes.forEach((dish: Dish) => {
+                if (dish.dish_id && typeof dish.dish_id === 'string') {
+                  previouslyLoadedDishIdsRef.current.add(dish.dish_id);
+                }
+              });
+              
+              // Add these to the current dishes
+              setCurrentDishes(prev => [...prev, ...nextPageNewDishes]);
+              console.log(`Added ${nextPageNewDishes.length} dishes from the next page`);
+              return;
+            }
+          }
+        }
+      }
+      
+      // Track these new dishes as "loaded"
+      newDishes.forEach((dish: Dish) => {
         if (dish.dish_id && typeof dish.dish_id === 'string') {
           previouslyLoadedDishIdsRef.current.add(dish.dish_id);
         }
       });
       
       // Add new dishes to the end of current dishes
-      setCurrentDishes(prev => [...prev, ...data.dishes]);
-      console.log(`Added ${data.dishes.length} more dishes for ${mealTime}`);
+      setCurrentDishes(prev => [...prev, ...newDishes]);
+      console.log(`Added ${newDishes.length} more dishes for ${mealTime}`);
     } catch (error) {
       console.error("Error loading additional dishes:", error);
     } finally {
       apiCallInProgressRef.current = false;
     }
-  }, [mealTime, menu, swipedDishIds, user]);
+  }, [mealTime, menu, swipedDishIds, toast, user, currentDishes.length]);
 
   // Load dishes when meal time changes - complete reset
   useEffect(() => {
