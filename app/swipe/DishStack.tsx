@@ -34,7 +34,7 @@ const DishStack = memo(({
   isLoading, 
   onRefresh,
 }: DishStackProps) => {
-  console.log("DishStack rendered with dishes:", dishes.length);
+
   const controls = useAnimation();
   const [isAnimating, setIsAnimating] = useState(false);
 
