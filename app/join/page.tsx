@@ -47,7 +47,7 @@ export default function JoinMenuPage() {
           title: "Menu Joined!",
           description: "You can now start swiping on dishes.",
         })
-        router.push(`/swipe?menu=${formattedMenuId}`)
+        router.push(`/swipe/${formattedMenuId}`)
       } else {
         console.log(`Join Page: Failed to join menu with ID: ${formattedMenuId}`);
         setError("Menu not found. Please check the ID and try again. Make sure the ID is exactly as shared with you.")

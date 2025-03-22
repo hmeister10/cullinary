@@ -3,21 +3,17 @@
 import React, { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/hooks/use-toast"
-import { format, addDays } from "date-fns"
-import { CalendarIcon, Copy, Share2 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { addDays } from "date-fns"
 import { useApp } from "@/providers/app-provider"
 import { useRouter } from "next/navigation"
 import { UserNameForm } from "@/components/user-name-form"
+import { DateSelectionForm, MenuShareOptions } from "./components"
 
 export default function CreateMenuPage() {
   const [startDate, setStartDate] = useState<Date>(new Date())
   const [menuId, setMenuId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
-  const [isSharing, setIsSharing] = useState(false)
   const { createMenu, hasSetName } = useApp()
   const { toast } = useToast()
   const router = useRouter()
@@ -54,31 +50,9 @@ export default function CreateMenuPage() {
     }
   }
 
-  const copyMenuId = () => {
+  const handleStartSwiping = () => {
     if (menuId) {
-      navigator.clipboard.writeText(menuId)
-      toast({
-        title: "Copied!",
-        description: "Menu ID copied to clipboard.",
-      })
-    }
-  }
-
-  const shareViaWhatsApp = () => {
-    if (menuId) {
-      setIsSharing(true)
-      const shareText = `Join me in creating our weekly menu! Use this Menu ID to join: ${menuId}`
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`
-      window.open(whatsappUrl, "_blank")
-      setIsSharing(false)
-    }
-  }
-
-  const goToSwipeInterface = () => {
-    if (menuId) {
-      router.push(`/swipe?menu=${menuId}`)
-    } else {
-      router.push("/swipe")
+      router.push(`/swipe/${menuId}`)
     }
   }
 
@@ -92,70 +66,26 @@ export default function CreateMenuPage() {
   }
 
   return (
+    // Main container for the page layout
     <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
       <Card className="w-full max-w-md">
+        {/* Card header with title and description */}
         <CardHeader>
           <CardTitle>Create Weekly Menu</CardTitle>
           <CardDescription>Select a start date for your 7-day menu</CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Conditional rendering based on whether a menu ID exists */}
           {!menuId ? (
-            <div className="flex flex-col space-y-4">
-              <div className="flex flex-col space-y-1.5">
-                <label
-                  htmlFor="date"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                >
-                  Start Date
-                </label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !startDate && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={startDate}
-                      onSelect={(date) => date && setStartDate(date)}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Your menu will be for 7 days, from <span className="font-medium">{format(startDate, "PPP")}</span> to{" "}
-                <span className="font-medium">{format(addDays(startDate, 6), "PPP")}</span>
-              </div>
-            </div>
+            <DateSelectionForm 
+              startDate={startDate} 
+              setStartDate={setStartDate} 
+            />
           ) : (
-            <div className="flex flex-col items-center justify-center py-4 space-y-4">
-              <div className="flex flex-col items-center">
-                <h3 className="text-lg font-semibold">Your Menu ID</h3>
-                <p className="text-sm text-muted-foreground mb-2">Share this with your partner</p>
-                <div className="flex items-center">
-                  <div className="text-3xl font-mono tracking-wider bg-secondary p-3 rounded-lg">{menuId}</div>
-                  <Button variant="ghost" size="icon" onClick={copyMenuId} className="ml-2">
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-col space-y-2 w-full max-w-xs">
-                <Button onClick={shareViaWhatsApp} disabled={isSharing} className="flex items-center justify-center">
-                  <Share2 className="mr-2 h-4 w-4" />
-                  Share via WhatsApp
-                </Button>
-                <p className="text-xs text-center text-muted-foreground mt-2">Waiting for your partner to join...</p>
-              </div>
-            </div>
+            <MenuShareOptions 
+              menuId={menuId} 
+              onStartSwiping={handleStartSwiping}
+            />
           )}
         </CardContent>
         <CardFooter className="flex justify-between">
@@ -168,14 +98,10 @@ export default function CreateMenuPage() {
                 {isCreating ? "Creating..." : "Create Menu"}
               </Button>
             </>
-          ) : (
-            <Button onClick={goToSwipeInterface} className="w-full">
-              Start Swiping
-            </Button>
-          )}
+          ) : null}
         </CardFooter>
       </Card>
     </div>
-  )
+  );
 }
 
