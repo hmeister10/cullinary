@@ -1,6 +1,7 @@
-import { setDoc, serverTimestamp } from 'firebase/firestore';
+import { setDoc, serverTimestamp, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { BaseRepository } from './base.repository';
 import type { FirestoreMenu } from '../types/firestore-types';
+import type { Dish } from '@/lib/types/dish-types'; // Assuming Dish type is needed
 
 export class MenuRepository extends BaseRepository {
   constructor() {
@@ -41,12 +42,40 @@ export class MenuRepository extends BaseRepository {
     }
 
     if (!menu.participants.includes(userId)) {
-      await this.updateDoc(menuId, {
-        participants: [...menu.participants, userId]
+      await updateDoc(this.getDocRef(menuId), {
+        participants: arrayUnion(userId)
       });
     }
 
     return true;
+  }
+
+  async addMatch(menuId: string, dishId: string, category: string): Promise<boolean> {
+    try {
+      const fieldPath = `matches.${category}`;
+      await updateDoc(this.getDocRef(menuId), {
+        [fieldPath]: arrayUnion(dishId)
+      });
+      console.log(`Atomically added match ${dishId} to ${category} for menu ${menuId}`);
+      return true;
+    } catch (error) {
+      console.error(`Error adding match ${dishId} to menu ${menuId}:`, error);
+      return false;
+    }
+  }
+
+  async removeMatch(menuId: string, dishId: string, category: string): Promise<boolean> {
+    try {
+      const fieldPath = `matches.${category}`;
+      await updateDoc(this.getDocRef(menuId), {
+        [fieldPath]: arrayRemove(dishId)
+      });
+      console.log(`Atomically removed match ${dishId} from ${category} for menu ${menuId}`);
+      return true;
+    } catch (error) {
+      console.error(`Error removing match ${dishId} from menu ${menuId}:`, error);
+      return false;
+    }
   }
 
   async getMenuParticipants(menuId: string): Promise<string[]> {
@@ -60,13 +89,18 @@ export class MenuRepository extends BaseRepository {
   }
 
   async updateMenu(menuId: string, data: Partial<FirestoreMenu>): Promise<FirestoreMenu | null> {
-    await this.updateDoc(menuId, data);
-    return await this.getMenu(menuId);
+    try {
+      await updateDoc(this.getDocRef(menuId), data);
+      return await this.getMenu(menuId);
+    } catch (error) {
+      console.error(`Error updating menu ${menuId}:`, error);
+      return null;
+    }
   }
 
   async deleteMenu(menuId: string): Promise<boolean> {
     try {
-      await this.updateDoc(menuId, {
+      await updateDoc(this.getDocRef(menuId), {
         status: 'completed'
       });
       return true;

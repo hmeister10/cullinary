@@ -29,7 +29,7 @@ export abstract class BaseRepository {
     return db;
   }
 
-  protected getDocRef(id: string): DocumentReference {
+  public getDocRef(id: string): DocumentReference {
     return doc(this.db, this.collectionName, id);
   }
 

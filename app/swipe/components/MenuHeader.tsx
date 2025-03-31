@@ -16,7 +16,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Share2, Users, MoreHorizontal, Home } from "lucide-react"
+import { Share2, Users, MoreHorizontal, Home, ListChecks } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Menu, MenuDish } from "@/lib/types/menu-types"
 
@@ -30,14 +30,20 @@ export function MenuHeader({ menu }: MenuHeaderProps) {
 
   if (!menu) return null
 
-  // Calculate completion percentage
-  const totalDishes = menu.dishes?.length || 0
-  const swipedDishes = menu.dishes?.filter((dish: MenuDish) => dish.swiped)?.length || 0
-  const completionPercentage = totalDishes > 0 ? Math.round((swipedDishes / totalDishes) * 100) : 0
+  // --- Simplified Progress Calculation --- 
+  // Calculate total number of matched dishes across all categories
+  const totalMatches = Object.values(menu.matches || {}).reduce((sum, categoryMatches) => sum + categoryMatches.length, 0);
+  // Estimate total possible dishes (e.g., based on a typical fetch size per category)
+  // This is very rough and could be improved later.
+  const estimatedTotalDishes = 30 * 4; // Assuming ~30 dishes per 4 categories
+  const completionPercentage = estimatedTotalDishes > 0 
+    ? Math.round((totalMatches / estimatedTotalDishes) * 50) // Multiply by 50 as match means 2 people swiped
+    : 0;
+  // --- End Simplified Calculation --- 
 
   // Handle share menu
   const handleShare = () => {
-    const url = `${window.location.origin}/swipe?menu=${menu.menu_id}`
+    const url = `${window.location.origin}/swipe?menu=${menu.menu_id}` // URL to join the swipe session
     
     if (navigator.share) {
       navigator.share({
@@ -66,70 +72,44 @@ export function MenuHeader({ menu }: MenuHeaderProps) {
           <TooltipProvider>
             <Tooltip open={showShareTooltip}>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleShare}
-                  aria-label="Share menu"
-                >
+                <Button variant="outline" size="icon" onClick={handleShare} aria-label="Share menu">
                   <Share2 className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>Link copied!</p>
-              </TooltipContent>
+              <TooltipContent><p>Link copied!</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
           
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  aria-label="View participants"
-                >
+                <Button variant="outline" size="icon" aria-label="View participants">
                   <Users className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>
-                <p>{menu.participants?.length || 1} participant(s)</p>
-              </TooltipContent>
+              <TooltipContent><p>{menu.participants?.length || 1} participant(s)</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="icon"
-                aria-label="Menu options"
-              >
+              <Button variant="outline" size="icon" aria-label="Menu options">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href="/">
-                  <Home className="h-4 w-4 mr-2" />
-                  Home
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href={`/results?menu=${menu.menu_id}`}>
-                  View Results
-                </Link>
-              </DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href="/"><Home className="h-4 w-4 mr-2" />Home</Link></DropdownMenuItem>
+              <DropdownMenuItem asChild><Link href={`/menu/${menu.menu_id}`}><ListChecks className="h-4 w-4 mr-2" />View Menu</Link></DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
       
-      <div className="flex items-center gap-2">
-        <Progress value={completionPercentage} className="h-2" />
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {completionPercentage}% complete
-        </span>
+      {/* Simplified progress display showing match count */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {/* Optional: Keep progress bar with rough estimate */} 
+        {/* <Progress value={completionPercentage} className="h-2 flex-grow" /> */}
+        <span>{totalMatches} Matched Dishes</span>
       </div>
     </div>
   )

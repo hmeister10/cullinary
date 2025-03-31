@@ -1,6 +1,7 @@
-import { setDoc, serverTimestamp } from 'firebase/firestore';
+import { setDoc, serverTimestamp, collection, query, where, getDocs, writeBatch, Firestore } from 'firebase/firestore';
 import { BaseRepository } from './base.repository';
 import type { FirestoreSwipe } from '../types/firestore-types';
+import { db } from '../firebase'; // Assuming db is exported from your firebase config
 
 export class SwipeRepository extends BaseRepository {
   constructor() {
@@ -16,35 +17,76 @@ export class SwipeRepository extends BaseRepository {
       created_at: serverTimestamp()
     };
     
-    // Use a compound ID to ensure uniqueness
+    // Use a compound ID to ensure uniqueness if a user can only swipe once per dish per menu
     const swipeId = `${userId}_${dishId}_${menuId}`;
     await setDoc(this.getDocRef(swipeId), swipeData);
   }
 
-  async checkForMatch(menuId: string, dishId: string): Promise<boolean> {
-    // Get all swipes for this dish in this menu
-    const swipesSnapshot = await this.getDocsByField('menu_id', menuId);
-    const dishSwipes = swipesSnapshot.docs
-      .map(doc => doc.data() as FirestoreSwipe)
-      .filter(swipe => swipe.dish_id === dishId);
-
-    // Count likes
-    const likeCount = dishSwipes.filter(swipe => swipe.is_liked).length;
+  async checkForMatch(menuId: string, dishId: string, participants: string[]): Promise<boolean> {
+    console.log(`Checking for match: Menu=${menuId}, Dish=${dishId}, Participants=${participants.length}`);
     
-    // Get menu participants
-    const menuDoc = await this.getDoc(menuId);
-    if (!menuDoc.exists()) {
+    // Need at least 2 participants for a match
+    if (!participants || participants.length < 2) {
+      console.log('Not enough participants for a match.');
       return false;
     }
     
-    const menuData = menuDoc.data() as {participants: string[]};
-    const participants = menuData.participants;
+    // Ensure db is available
+    if (!db) {
+      console.error("Firestore database instance is not available.");
+      return false;
+    }
+
+    // Query for all LIKE swipes for this specific dish in this menu
+    const swipesRef = collection(db as Firestore, 'swipes'); // Use the collection name directly
+    const q = query(swipesRef, 
+      where('menu_id', '==', menuId), 
+      where('dish_id', '==', dishId),
+      where('is_liked', '==', true) // Only fetch likes
+    );
     
-    if (participants.length < 2) {
-      return false; // Need at least 2 participants for a match
+    const swipesSnapshot = await getDocs(q);
+    const likeCount = swipesSnapshot.size;
+    console.log(`Found ${likeCount} like(s) for Dish=${dishId} in Menu=${menuId}`);
+
+    // If the number of likes equals the number of participants, it's a match
+    const isMatch = likeCount === participants.length;
+    console.log(`Match result: ${isMatch}`);
+    return isMatch;
+  }
+
+  // New method to get all dish IDs swiped by a user for a specific menu
+  async getUserSwipedDishIds(userId: string, menuId: string): Promise<Set<string>> {
+    console.log(`%c[SwipeRepository] Fetching swiped dish IDs for User=${userId}, Menu=${menuId}`, 'color: magenta;');
+    if (!db) {
+      console.error("Firestore database instance is not available.");
+      return new Set();
+    }
+    if (!userId || !menuId) {
+      console.warn("[SwipeRepository] Missing userId or menuId for fetching swipes.");
+      return new Set();
     }
     
-    // If all participants liked it, it's a match
-    return likeCount === participants.length;
+    const swipedDishIds = new Set<string>();
+    try {
+      const swipesRef = collection(db as Firestore, 'swipes');
+      const q = query(swipesRef, 
+        where('user_id', '==', userId),
+        where('menu_id', '==', menuId)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((doc) => {
+        const data = doc.data() as FirestoreSwipe;
+        if (data.dish_id) {
+          swipedDishIds.add(data.dish_id);
+        }
+      });
+      console.log(`%c[SwipeRepository] Found ${swipedDishIds.size} swiped dishes for User=${userId}, Menu=${menuId}`, 'color: magenta;');
+    } catch (error) {
+      console.error(`[SwipeRepository] Error fetching user swipes for Menu=${menuId}:`, error);
+      // Return empty set on error, maybe add toast?
+    }
+    return swipedDishIds;
   }
 } 

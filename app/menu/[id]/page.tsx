@@ -13,126 +13,120 @@ import type { Dish } from "@/lib/types/dish-types"
 import { DishService } from "@/lib/services/dish-service"
 
 export default function MenuPage() {
-  const { activeMenu, loadMenu, user, loading, hasSetName } = useApp()
+  const { activeMenu, loadMenu, user, loading: userLoading, hasSetName } = useApp()
   const { toast } = useToast()
   const router = useRouter()
   const params = useParams()
-  const [isLoading, setIsLoading] = useState(true)
+  const [pageLoading, setPageLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const hasAttemptedLoad = useRef(false)
   const [menuDishes, setMenuDishes] = useState<Record<string, Dish>>({})
 
   useEffect(() => {
-    // Wait for user to be initialized before attempting to load menu
-    if (loading) return;
+    console.log("%c[MenuPage] Context activeMenu updated:", 'color: blue; font-weight: bold;', activeMenu);
+    if (activeMenu) {
+      console.log("%c[MenuPage] Matches from context:", 'color: green;', JSON.stringify(activeMenu.matches));
+    }
+  }, [activeMenu]);
+
+  useEffect(() => {
+    if (userLoading) {
+      console.log("[MenuPage] Waiting for user initialization...");
+      return;
+    }
     
-    // If user hasn't set name, redirect to home
     if (!hasSetName) {
+      console.log("[MenuPage] User has not set name, redirecting...");
       router.push("/");
       return;
     }
 
+    const menuId = params.id as string;
+    if (!menuId) {
+      console.error("[MenuPage] No menu ID in URL params.");
+      setLoadError("No menu ID provided.");
+      setPageLoading(false);
+      return;
+    }
+
+    console.log(`%c[MenuPage] Effect triggered. Current activeMenu ID: ${activeMenu?.menu_id}, URL menuId: ${menuId}`, 'color: orange;');
+
+    if (activeMenu?.menu_id === menuId || hasAttemptedLoad.current) {
+      console.log(`%c[MenuPage] Menu ${menuId} already loaded in context or load attempted.`, 'color: orange;');
+      setPageLoading(false);
+      return;
+    }
+    
     const loadMenuData = async () => {
-      // Prevent multiple load attempts
-      if (hasAttemptedLoad.current) return
-      hasAttemptedLoad.current = true
-      
-      setIsLoading(true)
-      setLoadError(null)
+      console.log(`%c[MenuPage] Attempting to load menu ${menuId} via loadMenu...`, 'color: purple;');
+      hasAttemptedLoad.current = true;
+      setPageLoading(true);
+      setLoadError(null);
       
       try {
-        // Get the menu ID from the URL
-        const menuId = params.id as string
+        if (!user) throw new Error("User not available for loading menu.");
         
-        if (!menuId) {
-          setLoadError("No menu ID provided.")
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No menu ID provided.",
-          })
-          return
-        }
-        
-        console.log("Attempting to load menu with ID:", menuId)
-        
-        // Check if we already have this menu loaded
-        if (activeMenu && activeMenu.menu_id === menuId) {
-          console.log("Menu already loaded:", menuId);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Ensure user is available before loading menu
-        if (!user) {
-          setLoadError("User not authenticated. Please refresh and try again.");
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "User not authenticated. Please refresh and try again.",
-          });
-          return;
-        }
-        
-        // Load the menu
-        const success = await loadMenu(menuId)
+        const success = await loadMenu(menuId);
         
         if (!success) {
-          setLoadError("Failed to load menu. It may have been deleted or you don't have access.")
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Failed to load menu. It may have been deleted or you don't have access.",
-          })
-          return
+          throw new Error("Failed to initiate menu loading or listener setup.");
         }
-        
-        console.log("Successfully loaded menu:", menuId)
-      } catch (error) {
-        console.error("Error loading menu:", error)
-        setLoadError("An unexpected error occurred while loading the menu.")
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "An unexpected error occurred while loading the menu.",
-        })
-      } finally {
-        setIsLoading(false)
+        console.log(`%c[MenuPage] loadMenu(${menuId}) called successfully. Waiting for listener...`, 'color: purple;');
+      } catch (error: any) {
+        console.error("[MenuPage] Error in loadMenuData:", error);
+        setLoadError(error.message || "Failed to load menu. It may not exist or you lack access.");
+        setPageLoading(false);
       }
-    }
+    };
     
-    loadMenuData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, hasSetName]) // Add loading and hasSetName as dependencies
+    loadMenuData();
+  }, [userLoading, hasSetName, user, params.id, activeMenu, loadMenu, router]);
 
   useEffect(() => {
-    // Skip if no menu is loaded yet
-    if (!activeMenu) return
-    
-    const loadDishDetails = async () => {
-      const dishService = DishService.getInstance()
-      const allDishIds = [
-        ...activeMenu.matches.breakfast,
-        ...activeMenu.matches.lunch, 
-        ...activeMenu.matches.dinner,
-        ...activeMenu.matches.snack
-      ].filter(Boolean)
-      
-      const dishMap: Record<string, Dish> = {}
-      
-      // Load each dish by ID
-      await Promise.all(allDishIds.map(async (dishId) => {
-        const dish = await dishService.getDishById(dishId)
-        if (dish) {
-          dishMap[dishId] = dish
-        }
-      }))
-      
-      setMenuDishes(dishMap)
+    if (!activeMenu?.matches) {
+      console.log("[MenuPage] No activeMenu or matches found, clearing dish details.");
+      setMenuDishes({});
+      return;
     }
     
-    loadDishDetails()
-  }, [activeMenu])
+    const loadDishDetails = async () => {
+      console.log("%c[MenuPage] Loading dish details based on activeMenu.matches...", 'color: brown;');
+      const dishService = DishService.getInstance();
+      const allDishIds = [...new Set(Object.values(activeMenu.matches).flat())].filter(Boolean);
+      
+      if (allDishIds.length === 0) {
+        console.log("[MenuPage] No matched dish IDs found.");
+        setMenuDishes({});
+        return;
+      }
+
+      console.log(`[MenuPage] Matched Dish IDs to fetch: [${allDishIds.join(', ')}]`);
+      const dishMap: Record<string, Dish> = {};
+      let fetchError = false;
+      
+      try {
+        await Promise.all(allDishIds.map(async (dishId) => {
+          console.log(`[MenuPage] Fetching details for dish ID: ${dishId}`);
+          const dish = await dishService.getDishById(dishId);
+          if (dish) {
+            console.log(`%c[MenuPage] SUCCESS Fetching details for dish ID: ${dishId}`, 'color: green;');
+            dishMap[dishId] = dish;
+          } else {
+            console.warn(`%c[MenuPage] FAILED Fetching details for dish ID: ${dishId}`, 'color: orange;');
+            console.warn(`[MenuPage] Could not fetch details for dish ID: ${dishId}`);
+          }
+        }));
+      } catch (error) {
+        console.error("[MenuPage] Error fetching dish details:", error);
+        fetchError = true;
+      }
+      
+      console.log(`%c[MenuPage] Dish details fetched. Found ${Object.keys(dishMap).length} details.`, 'color: brown;');
+      setMenuDishes(dishMap);
+    };
+    
+    loadDishDetails();
+  }, [activeMenu?.matches]);
 
   const shareMenu = () => {
     toast({
@@ -152,8 +146,7 @@ export default function MenuPage() {
     router.push("/")
   }
 
-  // Show loading state
-  if (isLoading) {
+  if (pageLoading && !activeMenu && !loadError) {
     return (
       <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
         <div className="text-center">
@@ -164,8 +157,7 @@ export default function MenuPage() {
     )
   }
 
-  // Show error state
-  if (loadError || !activeMenu) {
+  if (loadError) {
     return (
       <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
         <div className="text-center max-w-md">
@@ -179,15 +171,51 @@ export default function MenuPage() {
     )
   }
 
+  if (!pageLoading && !activeMenu) {
+    return (
+      <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
+        <div className="text-center max-w-md">
+          <p className="text-lg mb-4">Could not find the requested menu.</p>
+          <Button onClick={goHome}>Return to Home</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!activeMenu) return null;
+
   const startDate = parseISO(activeMenu.start_date)
-  const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i))
+  // const days = Array.from({ length: 7 }, (_, i) => addDays(startDate, i)) // Keep commented out for now
+  const mealCategories: (keyof typeof activeMenu.matches)[] = ['breakfast', 'lunch', 'dinner', 'snack']
+
+  // --- Start Enhanced Logging ---
+  console.log("%c[MenuPage] === Pre-Render Check ===", 'color: red; font-weight: bold;');
+  console.log("[MenuPage] activeMenu ID:", activeMenu?.menu_id);
+  console.log("[MenuPage] activeMenu.matches:", JSON.stringify(activeMenu?.matches, null, 2));
+  // console.log("[MenuPage] menuDishes state:", JSON.stringify(menuDishes, null, 2));
+  
+  // Check consistency: Are there dish IDs in matches that are not in menuDishes?
+  const allMatchIds = new Set(Object.values(activeMenu?.matches || {}).flat().filter(Boolean));
+  const loadedDishIds = new Set(Object.keys(menuDishes));
+  const missingDishDetails = [...allMatchIds].filter(id => !loadedDishIds.has(id));
+  if (missingDishDetails.length > 0) {
+      console.warn(`%c[MenuPage] WARN: Missing dish details for IDs: [${missingDishDetails.join(', ')}]`, 'color: orange;');
+  } else if (allMatchIds.size > 0) {
+      console.log("%c[MenuPage] OK: All matched dish IDs have corresponding details in menuDishes state.", 'color: green;');
+  } else {
+      console.log("%c[MenuPage] INFO: No matched dish IDs found in activeMenu.matches.", 'color: blue;');
+  }
+  // --- End Enhanced Logging ---
+  
+  // The rendering logic using mealCategories remains the same for now
+  // We will restore the 7-day view after confirming data rendering
 
   return (
     <div className="container flex flex-col items-center min-h-screen py-6 px-4">
-      <div className="w-full max-w-7xl mx-auto">
+      <div className="w-full max-w-4xl mx-auto">
         <div className="flex flex-col space-y-4 mb-6">
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Your Weekly Menu</h1>
+            <h1 className="text-2xl font-bold">Your Weekly Menu: {activeMenu.menu_id}</h1>
             <div className="flex space-x-2">
               <Button variant="outline" size="sm" onClick={shareMenu}>
                 <Share2 className="h-4 w-4 mr-2" />
@@ -211,157 +239,64 @@ export default function MenuPage() {
           </Card>
         </div>
 
-        {/* Weekly view with horizontal scrolling */}
-        <div className="overflow-x-auto pb-4">
-          <div className="grid grid-cols-7 gap-4" style={{ minWidth: "1000px" }}>
-            {days.map((day, dayIndex) => (
-              <div key={dayIndex} className="flex flex-col space-y-4">
-                <div className="text-center">
-                  <div className="text-sm font-medium">{format(day, "EEE")}</div>
-                  <div className="text-xl font-bold">{format(day, "d")}</div>
-                </div>
-                
-                {/* Breakfast */}
-                <Card className="h-full">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Breakfast</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3">
-                    {activeMenu.matches.breakfast[dayIndex] ? (
-                      <div className="flex flex-col space-y-2">
-                        <div className="relative h-16 w-full rounded-md overflow-hidden">
-                          <Image
-                            src={
-                              (menuDishes[activeMenu.matches.breakfast[dayIndex]] 
-                                ? menuDishes[activeMenu.matches.breakfast[dayIndex]].image_url 
-                                : "/placeholder.svg?height=64&width=64")
-                            }
-                            alt={menuDishes[activeMenu.matches.breakfast[dayIndex]]?.name || "Breakfast item"}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-sm">
-                            {menuDishes[activeMenu.matches.breakfast[dayIndex]]?.name || "Loading..."}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {menuDishes[activeMenu.matches.breakfast[dayIndex]]?.preference || ""}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">No breakfast selected yet.</p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Lunch */}
-                <Card className="h-full">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Lunch</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3">
-                    {activeMenu.matches.lunch[dayIndex] ? (
-                      <div className="flex flex-col space-y-2">
-                        <div className="relative h-16 w-full rounded-md overflow-hidden">
-                          <Image
-                            src={
-                              (menuDishes[activeMenu.matches.lunch[dayIndex]] 
-                                ? menuDishes[activeMenu.matches.lunch[dayIndex]].image_url 
-                                : "/placeholder.svg?height=64&width=64")
-                            }
-                            alt={menuDishes[activeMenu.matches.lunch[dayIndex]]?.name || "Lunch item"}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-sm">
-                            {menuDishes[activeMenu.matches.lunch[dayIndex]]?.name || "Loading..."}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {menuDishes[activeMenu.matches.lunch[dayIndex]]?.preference || ""}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">No lunch selected yet.</p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Dinner */}
-                <Card className="h-full">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Dinner</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3">
-                    {activeMenu.matches.dinner[dayIndex] ? (
-                      <div className="flex flex-col space-y-2">
-                        <div className="relative h-16 w-full rounded-md overflow-hidden">
-                          <Image
-                            src={
-                              (menuDishes[activeMenu.matches.dinner[dayIndex]] 
-                                ? menuDishes[activeMenu.matches.dinner[dayIndex]].image_url 
-                                : "/placeholder.svg?height=64&width=64")
-                            }
-                            alt={menuDishes[activeMenu.matches.dinner[dayIndex]]?.name || "Dinner item"}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-sm">
-                            {menuDishes[activeMenu.matches.dinner[dayIndex]]?.name || "Loading..."}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {menuDishes[activeMenu.matches.dinner[dayIndex]]?.preference || ""}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">No dinner selected yet.</p>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Snack */}
-                <Card className="h-full">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm">Snack</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3">
-                    {activeMenu.matches.snack[dayIndex] ? (
-                      <div className="flex flex-col space-y-2">
-                        <div className="relative h-16 w-full rounded-md overflow-hidden">
-                          <Image
-                            src={
-                              (menuDishes[activeMenu.matches.snack[dayIndex]] 
-                                ? menuDishes[activeMenu.matches.snack[dayIndex]].image_url 
-                                : "/placeholder.svg?height=64&width=64")
-                            }
-                            alt={menuDishes[activeMenu.matches.snack[dayIndex]]?.name || "Snack item"}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-sm">
-                            {menuDishes[activeMenu.matches.snack[dayIndex]]?.name || "Loading..."}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            {menuDishes[activeMenu.matches.snack[dayIndex]]?.preference || ""}
-                          </p>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">No snack selected yet.</p>
-                    )}
-                  </CardContent>
-                </Card>
+        <div className="space-y-6">
+          {mealCategories.map(category => {
+            const matchedDishIds = activeMenu.matches[category] || [];
+            const categoryString = category as string;
+            
+            return (
+              <div key={categoryString}>
+                <h2 className="text-xl font-semibold mb-3 capitalize border-b pb-1">
+                  {categoryString}
+                </h2>
+                {matchedDishIds.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {matchedDishIds.map(dishId => {
+                      const dish = dishId ? menuDishes[dishId] : null;
+                      return (
+                        <Card key={`${categoryString}-${dishId}`} className="flex flex-col overflow-hidden">
+                          {dish ? (
+                            <>
+                              <div className="relative h-32 w-full">
+                                <Image
+                                  src={dish.image_url || "/assets/food-placeholder.svg"}
+                                  alt={dish.name}
+                                  fill
+                                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 20vw"
+                                  className="object-cover"
+                                />
+                              </div>
+                              <CardHeader className="p-2 flex-grow">
+                                <CardTitle className="text-sm font-medium leading-tight line-clamp-2">
+                                  {dish.name}
+                                </CardTitle>
+                              </CardHeader>
+                            </>
+                          ) : dishId ? (
+                            <div className="p-4 text-center text-xs text-muted-foreground italic">
+                              Loading details for {dishId}...
+                            </div>
+                          ) : null} 
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic px-2">
+                    No matches for {categoryString} yet.
+                  </p>
+                )}
               </div>
-            ))}
+            );
+          })}
+        </div>
+
+        <div className="mt-10 p-4 border-t">
+          <h2 className="text-xl font-semibold mb-4">More Options (Future)</h2>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>- Display all liked/disliked dishes by participants.</p>
+            <p>- Allow manual addition/override of dishes.</p>
+            <p>- Implement drag-and-drop reordering.</p>
           </div>
         </div>
 

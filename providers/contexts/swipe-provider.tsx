@@ -25,29 +25,49 @@ export function SwipeProvider({ children }: { children: ReactNode }) {
     if (!user || !activeMenu) return false;
 
     try {
-      // Record the swipe
+      // Record the swipe (this should happen regardless of match)
       await swipeRepository.recordSwipe(user.uid, dish.dish_id, activeMenu.menu_id, isLiked);
       
-      // Update local state
+      // Update local state immediately for responsiveness
       setUserSwipes(prev => ({
         ...prev,
         [dish.dish_id]: isLiked
       }));
 
-      // Check for match
-      const isMatch = await swipeRepository.checkForMatch(activeMenu.menu_id, dish.dish_id);
-      
-      if (isMatch) {
-        // Update menu matches
-        const updatedMenu = await menuRepository.updateMenu(activeMenu.menu_id, {
-          matches: {
-            ...activeMenu.matches,
-            [dish.category]: [...(activeMenu.matches[dish.category] || []), dish.dish_id]
-          }
-        });
-      }
+      // Only check for match if it was a LIKE swipe
+      if (isLiked) {
+        // Pass participants list to avoid redundant fetch
+        const participants = activeMenu.participants || [];
+        const isMatch = await swipeRepository.checkForMatch(activeMenu.menu_id, dish.dish_id, participants);
+        
+        if (isMatch) {
+          // Atomically add the match to the correct category
+          let categoryFromDish = dish.category || 'snack'; // Use a sensible default
+          
+          // Normalize category key for Firestore path to lowercase
+          const categoryKeyForUpdate = categoryFromDish.toLowerCase(); // Simple lowercase string
+          
+          console.log(`SwipeProvider: Dish category is '${categoryFromDish}', using '${categoryKeyForUpdate}' for Firestore update.`);
 
-      return isMatch;
+          // Pass the simple lowercase string to addMatch
+          const success = await menuRepository.addMatch(activeMenu.menu_id, dish.dish_id, categoryKeyForUpdate);
+          
+          if (success) {
+            toast({ // Optional: Notify user of match
+              title: "It's a Match!",
+              description: `${dish.name} added to the menu.`,
+            });
+            return true; // Indicate a match occurred
+          } else {
+            console.error(`Failed to add match ${dish.dish_id} to menu ${activeMenu.menu_id}`);
+            // Optional: Show an error toast if adding the match fails
+            // toast({...});
+            return false; // Indicate match check succeeded, but DB update failed
+          }
+        }
+      }
+      // If it wasn't a like, or if it wasn't a match
+      return false;
     } catch (error) {
       console.error("Error swiping on dish:", error);
       toast({
@@ -88,19 +108,23 @@ export function SwipeProvider({ children }: { children: ReactNode }) {
     }
   }, [user, activeMenu, userSwipes, toast]);
 
-  // Remove dish from shortlist
+  // Remove dish from shortlist using atomic operation
   const removeDishFromShortlist = async (dish: Dish, category: string): Promise<boolean> => {
-    if (!user || !activeMenu) return false;
+    if (!user || !activeMenu || !dish.dish_id || !category) return false;
 
     try {
-      const updatedMenu = await menuRepository.updateMenu(activeMenu.menu_id, {
-        matches: {
-          ...activeMenu.matches,
-          [category]: activeMenu.matches[category].filter(id => id !== dish.dish_id)
-        }
-      });
+      const success = await menuRepository.removeMatch(activeMenu.menu_id, dish.dish_id, category);
       
-      return !!updatedMenu;
+      if (!success) {
+        console.error(`Failed to remove match ${dish.dish_id} from menu ${activeMenu.menu_id}`);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to remove dish from shortlist. Please try again.",
+        });
+      }
+      
+      return success;
     } catch (error) {
       console.error("Error removing dish from shortlist:", error);
       toast({

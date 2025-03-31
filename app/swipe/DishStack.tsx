@@ -31,35 +31,15 @@ const swipeThreshold = 100; // Swipe distance required before triggering action
 const DishStack = memo(({ 
   dishes, 
   onSwipe, 
-  isLoading, 
+  isLoading,
   onRefresh,
 }: DishStackProps) => {
 
   const controls = useAnimation();
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Loading state
-  if (isLoading && dishes.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <motion.div 
-            className="rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"
-            animate={{ rotate: 360 }}
-            transition={{
-              duration: 1,
-              ease: "linear",
-              repeat: Infinity
-            }}
-          />
-          <p>Loading dishes...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Empty state
-  if (dishes.length === 0) {
+  // Empty state (uses onRefresh from props)
+  if (!isLoading && dishes.length === 0) {
     return (
       <motion.div 
         className="flex flex-col items-center justify-center h-full space-y-4"
@@ -85,48 +65,39 @@ const DishStack = memo(({
     );
   }
   
-  // Main content - show current dish with swipe gestures
+  // Only proceed if not loading and dishes exist
+  if (isLoading || dishes.length === 0) {
+    // Parent shows loading, so return null here or a minimal placeholder
+    return null; 
+  }
+  
+  // Get the current dish (safe because we checked length > 0)
   const currentDish = dishes[0];
 
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    // If we're already in the middle of an animation, ignore this
     if (isAnimating) return;
-    
     const xOffset = info.offset.x;
     const xVelocity = info.velocity.x;
     
     if (Math.abs(xOffset) > swipeThreshold || Math.abs(xVelocity) > swipeConfidenceThreshold) {
-      // Direction threshold crossed - swipe it!
       const dir = xOffset > 0 ? "right" : "left";
-
       setIsAnimating(true);
-      
-      // Animate the card off screen in the right direction
       controls.start({
         x: dir === "right" ? 1000 : -1000,
         opacity: 0,
         transition: { duration: 0.5 }
       }).then(() => {
-        // After animation completes, trigger the swipe handler
         onSwipe(currentDish, dir);
         setIsAnimating(false);
       });
     } else {
-      // If not past threshold, animate back to center
-      controls.start({
-        x: 0,
-        opacity: 1,
-        transition: { duration: 0.5 }
-      });
+      controls.start({ x: 0, opacity: 1, transition: { duration: 0.5 } });
     }
   };
   
-  // Handle manual swipe button clicks
   const handleSwipeClick = (dir: string) => {
     if (isAnimating) return;
-    
     setIsAnimating(true);
-    
     controls.start({
       x: dir === "right" ? 1000 : -1000,
       opacity: 0,
@@ -138,82 +109,73 @@ const DishStack = memo(({
   };
   
   return (
-    <div className="relative h-full flex flex-col">
-      {/* Card stack with animations */}
-      <div className="flex-1 mb-4 relative">
+    // Use flex-col and h-full to occupy parent space
+    <div className="relative w-full h-full flex flex-col items-center"> 
+      {/* Card stack area - Use flex-grow to take available vertical space */} 
+      <div className="flex-1 w-full flex items-center justify-center mb-4 relative"> 
         <AnimatePresence>
+          {/* Limit rendering to top few cards for performance */} 
           {dishes.slice(0, 3).map((dish, index) => (
             <motion.div
-              key={dish.dish_id}
-              className="absolute w-full"
+              key={dish.dish_id ?? `dish-${index}`} // Fallback key
+              className="absolute w-[90%] max-w-sm h-[420px]" // Give cards a size
               style={{
                 zIndex: dishes.length - index,
-                top: index === 0 ? 0 : `${index * 8}px`,
-                opacity: index === 0 ? 1 : 0.4 - (index * 0.1),
-                scale: 1 - (index * 0.05),
-                boxShadow: index === 0 ? "0 8px 16px rgba(0, 0, 0, 0.15)" : "0 4px 8px rgba(0, 0, 0, 0.1)",
+                // Simplified stacking visuals
+                y: index === 0 ? 0 : `${index * 6}px`, 
+                opacity: index === 0 ? 1 : 1 - (index * 0.2), // Fade back cards
+                scale: 1 - (index * 0.03), // Slightly shrink back cards
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                cursor: index === 0 ? "grab" : "auto", // Grab cursor only on top
               }}
-              // Only first card is draggable
+              // Only top card is draggable and animated via controls
               {...(index === 0 ? {
                 drag: "x",
-                dragConstraints: { left: 0, right: 0 },
-                dragElastic: 0.7,
+                dragConstraints: { left: 0, right: 0 }, // Lock vertical drag
+                dragElastic: 0.6,
                 onDragEnd: handleDragEnd,
-                whileDrag: { scale: 1.02, cursor: "grabbing" },
+                whileDrag: { scale: 1.03, cursor: "grabbing" },
                 animate: controls,
-                initial: { scale: 0.95, opacity: 1 },
-                exit: { opacity: 0 },
-                transition: { duration: 0.3 }
+                initial: { scale: 0.98, y: 0, opacity: 1 }, // Start slightly smaller
+                exit: { opacity: 0, transition: { duration: 0.3 } }, // Fade out on exit
+                transition: { type: "spring", stiffness: 400, damping: 40 } // Spring animation for return
               } : {})}
             >
-              <DishCard 
-                dish={dish} 
-              />
+              <DishCard dish={dish} />
             </motion.div>
           ))}
         </AnimatePresence>
       </div>
       
-      {/* Simple swipe controls */}
-      <div className="flex justify-center space-x-6 pb-4">
-        <motion.div
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
+      {/* Swipe controls below the card stack */} 
+      <div className="flex justify-center space-x-6 py-4"> 
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
           <Button 
             variant="outline" 
             className="rounded-full h-14 w-14 flex items-center justify-center bg-red-50 border-red-200 hover:bg-red-100"
-            onClick={() => handleSwipeClick("left")}
-            disabled={isAnimating}
+            onClick={() => handleSwipeClick("left")} disabled={isAnimating}
           >
             <ThumbsDown className="text-red-500" />
           </Button>
         </motion.div>
-        
-        <motion.div
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
+        <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
           <Button 
             variant="outline" 
             className="rounded-full h-14 w-14 flex items-center justify-center bg-green-50 border-green-200 hover:bg-green-100"
-            onClick={() => handleSwipeClick("right")}
-            disabled={isAnimating}
+            onClick={() => handleSwipeClick("right")} disabled={isAnimating}
           >
             <ThumbsUp className="text-green-500" />
           </Button>
         </motion.div>
       </div>
       
-      {/* Dish counter */}
-      <motion.div 
+      {/* Dish counter (optional, keep if desired) */} 
+      {/* <motion.div 
         className="text-xs text-muted-foreground text-center pb-2"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
       >
         {dishes.length} dishes remaining
-      </motion.div>
+      </motion.div> */}
     </div>
   );
 });
