@@ -1,6 +1,7 @@
 import { Dish, MealCategory, DietPreference, CuisineType, SpiceLevel } from "@/lib/types/dish-types";
 import { readCsvFile } from "@/lib/utils/csv-parser";
-import path from 'path';
+import fs from 'fs';
+import { parse } from 'csv-parse/sync';
 
 // Define the structure of the CSV records
 interface CsvDishRecord {

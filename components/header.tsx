@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeft, User, Menu as MenuIcon } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { useApp } from "@/providers/app-provider"
+import { useUser } from "@/providers/user-provider"
 import { useState } from 'react'
 import { cn } from "@/lib/utils"
 
@@ -13,7 +13,7 @@ interface HeaderProps {
 }
 
 export function Header({ showBackButton = false, title = "Menu Maker" }: HeaderProps) {
-  const { user } = useApp()
+  const { user } = useUser()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   const firstLetter = user?.name ? user.name[0].toUpperCase() : 'U'

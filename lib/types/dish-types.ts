@@ -3,7 +3,7 @@
  */
 
 export type MealCategory = "Breakfast" | "Lunch" | "Dinner" | "Snack"
-export type DietPreference = "Veg" | "Non-Veg"
+export type DietPreference = "Veg" | "Non-Veg" | "Vegan" | "Jain" | "Sattvic" | "Egg" | "Other"
 export type CuisineType = 
   | "North Indian" 
   | "South Indian" 
@@ -33,12 +33,12 @@ export interface Dish {
   dish_id: string
   name: string
   category: MealCategory
-  is_healthy: boolean
+  is_healthy?: boolean
   preference: DietPreference
   image_url: string
   cuisines: CuisineType[]
   ingredients: string[]
-  dietary_tags: string[]
+  dietary_tags?: string[]
   protein_source?: string
   spice_level?: SpiceLevel
   preparation_time?: number // in minutes

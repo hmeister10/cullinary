@@ -16,9 +16,22 @@ import {
   type CollectionReference,
   type Timestamp,
   type FieldValue,
-  type Unsubscribe
+  type Unsubscribe,
+  arrayRemove,
+  deleteDoc
 } from 'firebase/firestore';
-import { mockDB, type Dish, type Menu, type MenuMatches } from './mock-data';
+// import { mockDB, type Dish, type Menu, type MenuMatches } from './mock-data';
+// import { type Dish as FirestoreDish } from "./dishes"; // Assuming Dish type is defined/exported here
+
+// Import necessary types using alias paths again
+import { type Menu, type MenuMatches } from "@/lib/types/menu-types"; 
+import { type Dish } from "@/lib/types/dish-types"; 
+import { type User } from "@/lib/types/user-types";
+
+// Define UserSwipes interface here
+interface UserSwipes {
+  [dishId: string]: boolean // true for right swipe, false for left swipe
+}
 
 // Collection references
 const MENUS_COLLECTION = 'menus';
@@ -43,16 +56,17 @@ function getCollectionRef(collectionName: string): CollectionReference {
   return collection(getFirestore(), collectionName);
 }
 
-export interface FirestoreMenu extends Omit<Menu, 'matches'> {
-  matches: {
+// Define FirestoreMenu interface (includes createdBy)
+export interface FirestoreMenu extends Omit<Menu, 'matches' | 'createdBy'> { // Omit fields handled differently
+  matches: { // Store matches as string arrays
     breakfast: string[];
     lunch: string[];
     dinner: string[];
     snack: string[];
   };
-  created_at: Timestamp | FieldValue; // Firestore timestamp or server timestamp
-  player1Id?: string; // Example: Creator ID
-  player2Id?: string; // Example: Partner ID
+  createdBy: string; // Creator's user ID
+  createdAt: Timestamp | FieldValue; // Use Firestore timestamp types
+  // Remove player1Id, player2Id unless actually used
 }
 
 export interface FirestoreUser {
@@ -73,27 +87,22 @@ export interface FirestoreSwipe {
 export const firestoreService = {
   // Create a new menu
   async createMenu(startDate: string, endDate: string, userId: string, userName?: string): Promise<string> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
-      // Generate a random menu ID (6 characters)
       const menuId = Math.random().toString(36).substring(2, 8).toUpperCase();
       console.log(`Firestore: Generated menu ID: ${menuId}`);
       
-      const menuData: FirestoreMenu = {
+      const menuData: FirestoreMenu = { // Use FirestoreMenu type
         menu_id: menuId,
         start_date: startDate,
         end_date: endDate,
         participants: [userId],
-        matches: {
-          breakfast: [],
-          lunch: [],
-          dinner: [],
-          snack: []
-        },
+        matches: { breakfast: [], lunch: [], dinner: [], snack: [] },
         status: 'pending',
-        created_at: serverTimestamp()
+        createdBy: userId, // Add creator ID
+        createdAt: serverTimestamp() // Corrected field name
       };
       
-      // Save to Firestore
       await setDoc(getDocRef(MENUS_COLLECTION, menuId), menuData);
       console.log(`Firestore: Saved menu with ID: ${menuId}`);
       
@@ -110,6 +119,7 @@ export const firestoreService = {
   
   // Get a menu by ID
   async getMenu(menuId: string): Promise<Menu | null> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       // Normalize menu ID to uppercase
       const normalizedMenuId = menuId.toUpperCase();
@@ -125,14 +135,19 @@ export const firestoreService = {
       console.log(`Firestore: Found menu with ID: ${normalizedMenuId}`);
       const menuData = menuDoc.data() as FirestoreMenu;
       
-      // Convert Firestore format to app format
+      // Get raw match IDs
+      const rawMatches = await this.getMenuMatches(normalizedMenuId, menuData.matches);
+
+      // Convert Firestore format to app format (Menu type)
       return {
         menu_id: menuData.menu_id,
         start_date: menuData.start_date,
         end_date: menuData.end_date,
         participants: menuData.participants,
         status: menuData.status,
-        matches: await this.getMenuMatches(normalizedMenuId, menuData.matches)
+        matches: rawMatches,
+        createdBy: menuData.createdBy, // Add createdBy field
+        createdAt: menuData.createdAt // Add createdAt field
       };
     } catch (error) {
       console.error('Error getting menu from Firestore:', error);
@@ -142,6 +157,7 @@ export const firestoreService = {
   
   // Join an existing menu
   async joinMenu(menuId: string, userId: string, userName?: string): Promise<boolean> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       // Normalize menu ID to uppercase
       const normalizedMenuId = menuId.toUpperCase();
@@ -180,6 +196,7 @@ export const firestoreService = {
   
   // Record a swipe
   async recordSwipe(userId: string, dishId: string, menuId: string, isLiked: boolean): Promise<void> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       const swipeData: FirestoreSwipe = {
         user_id: userId,
@@ -199,7 +216,8 @@ export const firestoreService = {
   },
   
   // Check for a match
-  async checkForMatch(menuId: string, dishId: string): Promise<boolean> {
+  async checkForMatch(menuId: string, dishId: string, category: string): Promise<boolean> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       // Get the menu
       const menuDoc = await getDoc(getDocRef(MENUS_COLLECTION, menuId));
@@ -239,32 +257,32 @@ export const firestoreService = {
       const isMatch = likeCount === participants.length;
       
       if (isMatch) {
-        // Add to matches in the appropriate category
-        // First, get the dish category
-        const dishCategory = dishId.charAt(0);
-        let category: keyof typeof menuData.matches;
+        // --- Use the passed-in category --- 
+        // REMOVE: const dish = await this.getDishById(dishId); 
+        // REMOVE: if (!dish || !dish.category) { ... } 
         
-        switch (dishCategory) {
-          case 'b':
-            category = 'breakfast';
-            break;
-          case 'l':
-            category = 'lunch';
-            break;
-          case 'd':
-            category = 'dinner';
-            break;
-          case 's':
-            category = 'snack';
-            break;
+        // Use the provided category string directly
+        const dishCategoryName = category.toLowerCase();
+        // ----------------------------------
+        
+        // Determine which matches field to update
+        let categoryKey: keyof FirestoreMenu['matches'] | null = null; // Use FirestoreMenu type here
+        switch (dishCategoryName) {
+          case 'breakfast': categoryKey = 'breakfast'; break;
+          case 'lunch': categoryKey = 'lunch'; break;
+          case 'dinner': categoryKey = 'dinner'; break;
+          case 'snack': categoryKey = 'snack'; break;
           default:
-            throw new Error(`Unknown dish category: ${dishCategory}`);
+            // Log error but don't throw, maybe the category from CSV is slightly different?
+            console.error(`checkForMatch Error: Received unexpected dish category name: ${dishCategoryName} for dishId: ${dishId}`);
+            return false; // Cannot update matches
         }
         
-        // Update the menu with the match
+        // Update the menu with the match ID (not the full dish object)
         await updateDoc(getDocRef(MENUS_COLLECTION, menuId), {
-          [`matches.${category}`]: arrayUnion(dishId)
+          [`matches.${categoryKey}`]: arrayUnion(dishId)
         });
+        console.log(`Firestore: Added match ${dishId} to category ${categoryKey} for menu ${menuId}`);
       }
       
       return isMatch;
@@ -276,6 +294,7 @@ export const firestoreService = {
   
   // Helper: Add menu to user's menu list
   async addMenuToUser(userId: string, menuId: string, userName?: string): Promise<void> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       const userDoc = await getDoc(getDocRef(USERS_COLLECTION, userId));
       
@@ -299,60 +318,37 @@ export const firestoreService = {
     }
   },
   
-  // Helper: Get full menu matches with dish details
-  async getMenuMatches(menuId: string, firestoreMatches: FirestoreMenu['matches']): Promise<MenuMatches> {
-    const allDishes = await mockDB.getAllDishes();
-    const dishMap = new Map<string, Dish>();
-    allDishes.forEach((dish: Dish) => {
-      dishMap.set(dish.dish_id, dish);
-    });
-    
-    // Helper function to safely map and filter IDs to Dishes
-    const mapAndFilterDishes = (ids: string[]): Dish[] => {
-      return ids
-        .map(id => dishMap.get(id)) // Map ID to Dish object (or undefined)
-        .filter((dish): dish is Dish => dish !== undefined); // Filter out undefined results
-    };
-
-    return {
-      breakfast: mapAndFilterDishes(firestoreMatches.breakfast),
-      lunch: mapAndFilterDishes(firestoreMatches.lunch),
-      dinner: mapAndFilterDishes(firestoreMatches.dinner),
-      snack: mapAndFilterDishes(firestoreMatches.snack)
-    };
+  // Helper: Get menu matches (returns only dish IDs)
+  async getMenuMatches(menuId: string, firestoreMatches: FirestoreMenu['matches']): Promise<FirestoreMenu['matches']> {
+    // Simply return the string arrays from Firestore
+    return firestoreMatches; 
   },
   
   // Get user's menus
   async getUserMenus(userId: string): Promise<Menu[]> {
+    if (!db) throw new Error("Firestore not initialized");
+    console.log(`Firestore: Getting menus for user: ${userId}`);
     try {
-      const userDoc = await getDoc(getDocRef(USERS_COLLECTION, userId));
+      const menusCollection = collection(db, MENUS_COLLECTION);
+      const q = query(menusCollection, where("participants", "array-contains", userId));
       
-      if (!userDoc.exists()) {
-        return [];
-      }
-      
-      const userData = userDoc.data() as FirestoreUser;
-      const menuIds = userData.menu_ids || [];
-      
-      // Fetch all menus
+      const querySnapshot = await getDocs(q);
       const menus: Menu[] = [];
+      querySnapshot.forEach((doc) => {
+        menus.push({ ...doc.data(), menu_id: doc.id } as Menu);
+      });
       
-      for (const menuId of menuIds) {
-        const menu = await this.getMenu(menuId);
-        if (menu) {
-          menus.push(menu);
-        }
-      }
-      
+      console.log(`Firestore: Found ${menus.length} menus for user ${userId}`);
       return menus;
     } catch (error) {
-      console.error('Error getting user menus from Firestore:', error);
-      throw error;
+      console.error(`Error fetching menus for user ${userId}:`, error);
+      throw new Error("Failed to fetch user menus from Firestore.");
     }
   },
   
   // Update user name
   async updateUserName(userId: string, name: string): Promise<void> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       const userDoc = await getDoc(getDocRef(USERS_COLLECTION, userId));
       
@@ -378,6 +374,7 @@ export const firestoreService = {
   
   // Get menu participants
   async getMenuParticipants(menuId: string): Promise<string[]> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       const menuDoc = await getDoc(getDocRef(MENUS_COLLECTION, menuId));
       
@@ -413,30 +410,23 @@ export const firestoreService = {
   
   // Remove a menu from a user's menu list
   async removeMenuFromUser(userId: string, menuId: string): Promise<void> {
+    if (!db) throw new Error("Firestore not initialized");
+    console.log(`Firestore: Removing user ${userId} from menu ${menuId}`);
     try {
-      const userDoc = await getDoc(getDocRef(USERS_COLLECTION, userId));
-      
-      if (!userDoc.exists()) {
-        return; // User doesn't exist, nothing to remove
-      }
-      
-      const userData = userDoc.data() as FirestoreUser;
-      const updatedMenuIds = userData.menu_ids.filter(id => id !== menuId);
-      
-      // Update user document with filtered menu list
-      await updateDoc(getDocRef(USERS_COLLECTION, userId), {
-        menu_ids: updatedMenuIds
+      const menuDocRef = doc(db, MENUS_COLLECTION, menuId);
+      await updateDoc(menuDocRef, {
+        participants: arrayRemove(userId)
       });
-      
-      console.log(`Removed menu ${menuId} from user ${userId}'s menu list`);
+      console.log(`Firestore: Successfully removed user ${userId} from menu ${menuId}`);
     } catch (error) {
-      console.error('Error removing menu from user in Firestore:', error);
-      throw error;
+      console.error(`Error removing user ${userId} from menu ${menuId}:`, error);
+      throw new Error("Failed to remove user from menu in Firestore.");
     }
   },
   
   // Check if a menu exists
   async menuExists(menuId: string): Promise<boolean> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       // Normalize menu ID to uppercase
       const normalizedMenuId = menuId.toUpperCase();
@@ -455,6 +445,7 @@ export const firestoreService = {
 
   // Add updateMenu method to the FirestoreService class
   async updateMenu(menu: Menu): Promise<void> {
+    if (!db) throw new Error("Firestore not initialized");
     if (!isFirebaseAvailable() || !menu || !menu.menu_id) {
       throw new Error('Firestore is not available or invalid menu');
     }
@@ -462,15 +453,10 @@ export const firestoreService = {
     try {
       const menuRef = getDocRef(MENUS_COLLECTION, menu.menu_id);
       
-      // Convert Menu to FirestoreMenu format
-      const firestoreMatches = {
-        breakfast: menu.matches.breakfast.map(dish => dish.dish_id),
-        lunch: menu.matches.lunch.map(dish => dish.dish_id),
-        dinner: menu.matches.dinner.map(dish => dish.dish_id),
-        snack: menu.matches.snack.map(dish => dish.dish_id)
-      };
+      // The menu object already contains string arrays in matches
+      // No conversion needed here
+      const firestoreMatches = menu.matches; 
       
-      // Get the existing menu to preserve created_at
       const menuDoc = await getDoc(menuRef);
       if (!menuDoc.exists()) {
         throw new Error(`Menu with ID ${menu.menu_id} not found`);
@@ -478,15 +464,13 @@ export const firestoreService = {
       
       const existingMenu = menuDoc.data() as FirestoreMenu;
       
-      // Update the menu document
       await updateDoc(menuRef, {
         start_date: menu.start_date,
         end_date: menu.end_date,
         participants: menu.participants,
-        matches: firestoreMatches,
+        matches: firestoreMatches, // Pass the string arrays directly
         status: menu.status,
-        // Preserve created_at from existing menu
-        created_at: existingMenu.created_at
+        created_at: existingMenu.createdAt 
       });
     } catch (error) {
       console.error('Error updating menu in Firestore:', error);
@@ -499,6 +483,7 @@ export const firestoreService = {
     menuId: string, 
     callback: (menu: Menu | null) => void
   ): Unsubscribe {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       const normalizedMenuId = menuId.toUpperCase();
       console.log(`Firestore: Setting up listener for menu ID: ${normalizedMenuId}`);
@@ -510,21 +495,21 @@ export const firestoreService = {
           console.log(`Firestore: Received update for menu: ${normalizedMenuId}`);
           const menuData = docSnapshot.data() as FirestoreMenu;
           
-          // Convert Firestore format to app format (including potential player IDs)
+          // Get raw match IDs
+          const rawMatches = await this.getMenuMatches(normalizedMenuId, menuData.matches);
+
+          // Convert Firestore format to app format (Menu type)
           const appMenu: Menu = {
             menu_id: menuData.menu_id,
             start_date: menuData.start_date,
             end_date: menuData.end_date,
             participants: menuData.participants,
             status: menuData.status,
-            // Map Firestore fields to your Menu type fields
-            // Ensure these fields exist on your Menu type in mock-data.ts
-            player1Id: menuData.player1Id, 
-            player2Id: menuData.player2Id, 
-            // Fetch and include matches
-            matches: await this.getMenuMatches(normalizedMenuId, menuData.matches)
+            matches: rawMatches, 
+            createdBy: menuData.createdBy, // Add createdBy
+            createdAt: menuData.createdAt // Add createdAt
           };
-          callback(appMenu); // Pass the formatted data to the callback
+          callback(appMenu); 
         } else {
           console.log(`Firestore: Menu ${normalizedMenuId} does not exist or was deleted.`);
           callback(null); // Notify the caller that the menu doesn't exist
@@ -547,6 +532,7 @@ export const firestoreService = {
 
   // GET USER NAME BY ID
   async getUserNameById(userId: string): Promise<string | null> {
+    if (!db) throw new Error("Firestore not initialized");
     try {
       console.log(`Firestore: Attempting to get user name for ID: ${userId}`);
       const userDoc = await getDoc(getDocRef(USERS_COLLECTION, userId));
@@ -569,6 +555,7 @@ export const firestoreService = {
 
   // GET USER NAMES BY IDS
   async getUserNamesByIds(userIds: string[]): Promise<Map<string, string | null>> {
+    if (!db) throw new Error("Firestore not initialized");
     const namesMap = new Map<string, string | null>();
     if (!userIds || userIds.length === 0) {
       return namesMap; // Return empty map if no IDs provided
@@ -598,4 +585,102 @@ export const firestoreService = {
     return namesMap;
   },
   // END GET USER NAMES BY IDS
+
+  // GET USER SWIPES FOR A MENU
+  async getUserSwipesForMenu(userId: string, menuId: string): Promise<UserSwipes> {
+    if (!db) throw new Error("Firestore not initialized");
+    const userSwipes: UserSwipes = {};
+    try {
+      console.log(`Firestore: Getting swipes for user ${userId} on menu ${menuId}`);
+      const swipesQuery = query(
+        getCollectionRef(SWIPES_COLLECTION),
+        where('user_id', '==', userId),
+        where('menu_id', '==', menuId)
+      );
+      
+      const swipesSnapshot = await getDocs(swipesQuery);
+      
+      swipesSnapshot.forEach(doc => {
+        const swipeData = doc.data() as FirestoreSwipe;
+        userSwipes[swipeData.dish_id] = swipeData.is_liked;
+      });
+      
+      console.log(`Firestore: Found ${swipesSnapshot.size} swipes for user ${userId} on menu ${menuId}`);
+      return userSwipes;
+    } catch (error) {
+      console.error(`Error getting user swipes for menu ${menuId} from Firestore:`, error);
+      // Return empty object on error, so the app doesn't crash
+      return {}; 
+    }
+  },
+  // END GET USER SWIPES FOR A MENU
+
+  // GET DISH BY ID FROM FIRESTORE
+  async getDishById(dishId: string): Promise<Dish | null> {
+    if (!db) throw new Error("Firestore not initialized");
+    try {
+      console.log(`Firestore: Getting dish by ID: ${dishId}`);
+      const dishRef = getDocRef('dishes', dishId); // Use 'dishes' collection
+      const dishDoc = await getDoc(dishRef);
+      
+      if (!dishDoc.exists()) {
+        console.warn(`Firestore: Dish with ID ${dishId} not found.`);
+        return null;
+      }
+      
+      // Assuming the document data matches the Dish type
+      const dishData = dishDoc.data() as Dish;
+      console.log(`Firestore: Found dish: ${dishData.name}`);
+      return dishData;
+    } catch (error) {
+      console.error(`Error getting dish ${dishId} from Firestore:`, error);
+      return null; // Return null on error
+    }
+  },
+  // END GET DISH BY ID
+
+  // GET DISHES BY CATEGORY FROM FIRESTORE
+  async getDishesByCategory(category: string): Promise<Dish[]> {
+    if (!db) throw new Error("Firestore not initialized");
+    const dishes: Dish[] = [];
+    try {
+      const lowerCaseCategory = category.toLowerCase();
+      console.log(`Firestore: Getting dishes for category: ${lowerCaseCategory}`);
+      
+      const dishesQuery = query(
+        getCollectionRef('dishes'),
+        where('category', '==', lowerCaseCategory) // Ensure case-insensitive query matches field in Firestore
+        // Add other potential filters like preference later if needed via query or client-side
+      );
+      
+      const querySnapshot = await getDocs(dishesQuery);
+      
+      querySnapshot.forEach((doc) => {
+        // Assuming document data matches the Dish type
+        dishes.push(doc.data() as Dish);
+      });
+      
+      console.log(`Firestore: Found ${dishes.length} dishes for category ${category}`);
+      return dishes;
+    } catch (error) {
+      console.error(`Error getting dishes for category ${category} from Firestore:`, error);
+      return []; // Return empty array on error
+    }
+  },
+  // END GET DISHES BY CATEGORY
+
+  // Deletes a menu document entirely.
+  // Should only be called by the menu creator.
+  async deleteMenuDocument(menuId: string): Promise<void> {
+    if (!db) throw new Error("Firestore not initialized");
+    console.log(`Firestore: Attempting to delete menu document: ${menuId}`);
+    try {
+      const menuDocRef = doc(db, MENUS_COLLECTION, menuId);
+      await deleteDoc(menuDocRef);
+      console.log(`Firestore: Successfully deleted menu document: ${menuId}`);
+    } catch (error) {
+      console.error(`Error deleting menu document ${menuId}:`, error);
+      throw new Error("Failed to delete menu document in Firestore.");
+    }
+  },
 }; 

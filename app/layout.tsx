@@ -1,7 +1,9 @@
 import type React from "react"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
-import { AppProvider } from "@/providers/app-provider"
+import { UserProvider } from "@/providers/user-provider"
+import { MenuProvider } from "@/providers/menu-provider"
+import { SwipeProvider } from "@/providers/swipe-provider"
 import "@/app/globals.css"
 
 export const metadata = {
@@ -21,10 +23,14 @@ export default function RootLayout({
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <AppProvider>
-            {children}
-            <Toaster />
-          </AppProvider>
+          <UserProvider>
+            <MenuProvider>
+              <SwipeProvider>
+                {children}
+                <Toaster />
+              </SwipeProvider>
+            </MenuProvider>
+          </UserProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
 import Link from "next/link"
-import { getStoredMenus, removeMenuFromStorage } from "@/lib/local-storage"
 import { format } from "date-fns"
-import { Calendar, Clock, Trash2, Utensils } from "lucide-react"
-import { useApp } from "@/providers/app-provider"
+import { Calendar, Clock, Trash2, Utensils, ListChecks, PlusCircle } from "lucide-react"
+import { useUser } from "@/providers/user-provider"
+import { useMenu } from "@/providers/menu-provider"
 import { Header } from "@/components/header"
 import { QuickSetup } from "./profile/components/QuickSetup"
-import { MenuTile } from "@/app/components/MenuTile"
 import { Badge } from "@/components/ui/badge"
 import type { Dish } from "@/lib/types/dish-types"
 import {
@@ -26,14 +25,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-
-interface StoredMenu {
-  menu_id: string;
-  name: string;
-  start_date: string;
-  end_date: string;
-  created_at: number;
-}
+import { Users } from "lucide-react"
 
 // Define a simpler interface for QuickSetup preferences
 interface QuickSetupPreferences {
@@ -45,31 +37,20 @@ interface QuickSetupPreferences {
 }
 
 export default function HomePage() {
-  const { loading, hasSetName, deleteMenu, updateUserProfile, user } = useApp()
-  const [recentMenus, setRecentMenus] = useState<StoredMenu[]>([])
+  const { loading: userLoading, hasSetName, updateUserProfile, user } = useUser()
+  const { deleteMenu, userMenuList, isLoadingUserMenus } = useMenu()
   const [menuToDelete, setMenuToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [featuredDishes, setFeaturedDishes] = useState<Dish[]>([])
   const [isLoadingDishes, setIsLoadingDishes] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
-  const hasLoadedMenus = useRef(false)
   const hasLoadedDishes = useRef(false)
-
-  // Load menus from localStorage on client side
-  useEffect(() => {
-    // Only load menus if we haven't already and the conditions are right
-    if (!hasLoadedMenus.current && !loading && hasSetName) {
-      const menus = getStoredMenus()
-      setRecentMenus(menus.slice(0, 3)) // Show only the 3 most recent menus
-      hasLoadedMenus.current = true
-    }
-  }, [loading, hasSetName])
 
   // Load featured dishes from API
   useEffect(() => {
     const fetchFeaturedDishes = async () => {
-      if (hasLoadedDishes.current || loading || !hasSetName) return
+      if (hasLoadedDishes.current || userLoading || !hasSetName) return
       
       try {
         setIsLoadingDishes(true)
@@ -95,7 +76,7 @@ export default function HomePage() {
     }
     
     fetchFeaturedDishes()
-  }, [loading, hasSetName, user])
+  }, [userLoading, hasSetName, user])
 
   // Handle quick setup completion
   const handleQuickSetupComplete = async (quickPreferences: QuickSetupPreferences) => {
@@ -178,18 +159,12 @@ export default function HomePage() {
       setIsDeleting(true);
       
       try {
-        // Remove from Firestore via app provider
+        // Call provider's deleteMenu (which should handle Firestore)
         await deleteMenu(menuToDelete);
-        
-        // Remove from localStorage
-        removeMenuFromStorage(menuToDelete);
-        
-        // Update state to reflect the change
-        setRecentMenus(prevMenus => prevMenus.filter(menu => menu.menu_id !== menuToDelete));
         
         toast({
           title: "Menu deleted",
-          description: "The menu has been removed from your list.",
+          description: "The menu has been removed.",
         });
       } catch (error) {
         console.error("Error deleting menu:", error);
@@ -199,7 +174,6 @@ export default function HomePage() {
           description: "Failed to delete menu. Please try again.",
         });
       } finally {
-        // Reset the menu to delete
         setMenuToDelete(null);
         setIsDeleting(false);
       }
@@ -211,8 +185,10 @@ export default function HomePage() {
     setMenuToDelete(null);
   };
 
-  // Show loading screen
-  if (loading) {
+  // Overall loading state combines user loading and initial menu loading
+  const isLoading = userLoading || isLoadingUserMenus;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -282,86 +258,152 @@ export default function HomePage() {
           
           {/* Menu Tiles */}
           <div className="w-full max-w-4xl mx-auto mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <MenuTile
-              title="Create Menu"
-              description="Start a new menu and invite your partner"
-              iconType="create-menu"
-              onClick={() => router.push('/create')}
-            />
+            <Link href="/create" className="block group">
+              <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
+                <CardHeader className="pb-3 pt-4">
+                  <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
+                    Create Menu
+                  </CardTitle>
+                  <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
+                    <ListChecks className="h-3.5 w-3.5" />
+                    Start a new menu and invite your partner
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                    View Menu
+                  </Button>
+                </CardContent>
+              </Card>
+            </Link>
             
-            <MenuTile
-              title="Join Menu"
-              description="Join an existing menu with a code"
-              iconType="join-menu"
-              onClick={() => router.push('/join')}
-            />
+            <Link href="/join" className="block group">
+              <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
+                <CardHeader className="pb-3 pt-4">
+                  <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
+                    Join Menu
+                  </CardTitle>
+                  <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
+                    <ListChecks className="h-3.5 w-3.5" />
+                    Join an existing menu with a code
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                    View Menu
+                  </Button>
+                </CardContent>
+              </Card>
+            </Link>
             
-            <MenuTile
-              title="Browse Recipes"
-              description="Explore our collection of recipes"
-              iconType="browse-recipes"
-              onClick={() => router.push('/recipes')}
-            />
+            <Link href="/recipes" className="block group">
+              <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
+                <CardHeader className="pb-3 pt-4">
+                  <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
+                    Browse Recipes
+                  </CardTitle>
+                  <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
+                    <ListChecks className="h-3.5 w-3.5" />
+                    Explore our collection of recipes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                    View Menu
+                  </Button>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
           
           {/* Recent Menus Section */}
-          <div className="w-full max-w-4xl mx-auto mt-8">
-            <h2 className="text-2xl font-bold mb-6">Recent Menus</h2>
+          <div className="w-full max-w-5xl mx-auto mb-16">
+            <h2 className="text-3xl font-bold tracking-tight mb-8 text-center">Your Menus</h2>
             
-            {recentMenus.length > 0 ? (
+            {isLoadingUserMenus ? (
+              // Loading state for menus specifically
+              <Card className="bg-muted/50 border-dashed border-gray-300">
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+                  <h3 className="text-xl font-medium text-muted-foreground">Loading your menus...</h3>
+                </CardContent>
+              </Card>
+            ) : userMenuList.length > 0 ? (
+              // Display fetched menus
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {recentMenus.map((menu) => (
+                {userMenuList.map((menu) => (
                   <Link href={`/menu/${menu.menu_id}`} key={menu.menu_id} className="block group">
-                    <Card className="h-full transition-all hover:shadow-md">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-xl group-hover:text-primary transition-colors">
-                          {menu.name}
+                    <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
+                      {/* Optional Image/Icon for Menu Card */}
+                      {/* <div className="bg-gray-100 h-32 flex items-center justify-center"> <ListChecks className="w-12 h-12 text-gray-400"/> </div> */}
+                      <CardHeader className="pb-3 pt-4">
+                        <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
+                          {menu.name || `Menu ${menu.menu_id.substring(0,6)}`} {/* Display name or default */}
                         </CardTitle>
-                        <CardDescription className="flex items-center gap-1">
+                        <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
                           <Calendar className="h-3.5 w-3.5" />
                           {format(new Date(menu.start_date), "MMM d")} - {format(new Date(menu.end_date), "MMM d, yyyy")}
                         </CardDescription>
                       </CardHeader>
-                      <CardContent className="pb-2">
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <CardContent className="pb-3">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3.5 w-3.5" />
-                          Created {format(new Date(menu.created_at), "MMM d, yyyy")}
+                          Created {menu.createdAt ? format(new Date(menu.createdAt.seconds * 1000), "MMM d, yyyy") : 'recently'}
+                        </div>
+                         <div className="flex items-center gap-1 text-xs text-muted-foreground pt-1">
+                            {/* Simple participant count */} 
+                            <Users className="h-3.5 w-3.5" /> 
+                            {menu.participants?.length || 0} participant(s)
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-between">
-                        <Button variant="outline" size="sm" className="group-hover:bg-primary/10 transition-colors">
+                      <CardFooter className="flex justify-between items-center bg-muted/30 py-2 px-4 border-t">
+                        <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                           View Menu
                         </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={(e) => handleDeleteMenu(menu.menu_id, e)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {/* Show delete button only if current user is the creator */}
+                        {user?.uid === menu.createdBy && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 rounded-full"
+                            onClick={(e) => handleDeleteMenu(menu.menu_id, e)}
+                            aria-label="Delete Menu"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </CardFooter>
                     </Card>
                   </Link>
                 ))}
+                 {/* Optional: Add a card to create a new menu */}
+                <Link href="/create" className="block group">
+                 <Card className="h-full transition-all hover:shadow-lg border-2 border-dashed border-gray-300 hover:border-primary flex items-center justify-center text-center text-muted-foreground hover:text-primary">
+                    <CardContent className="pt-6">
+                        <PlusCircle className="h-10 w-10 mx-auto mb-3" />
+                        <p className="font-medium">Create New Menu</p>
+                    </CardContent>
+                 </Card>
+                </Link>
               </div>
             ) : (
-              <Card className="bg-muted/50">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="rounded-full bg-primary/10 p-4 mb-4">
+              // Empty state when no menus found
+              <Card className="bg-muted/50 border-dashed border-gray-300">
+                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                  <div className="rounded-full bg-primary/10 p-5 mb-5">
                     <Image 
                       src="/assets/empty-menu.svg" 
                       alt="No menus" 
                       width={64} 
                       height={64} 
-                      className="opacity-70"
+                      className="opacity-75"
                     />
                   </div>
-                  <h3 className="text-xl font-medium mb-2">No recent menus</h3>
-                  <p className="text-muted-foreground mb-6 max-w-md">
-                    Create your first menu to get started with meal planning
+                  <h3 className="text-xl font-medium mb-2">No menus yet!</h3>
+                  <p className="text-muted-foreground mb-6 max-w-sm">
+                    It looks like you haven't created or joined any menus. Get started by creating one.
                   </p>
-                  <Button onClick={() => router.push('/create')}>
+                  <Button onClick={() => router.push('/create')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                     Create Your First Menu
                   </Button>
                 </CardContent>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useApp } from "@/providers/app-provider"
+import { useUser } from "@/providers/user-provider"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +12,7 @@ interface UserNameFormProps {
 }
 
 export function UserNameForm({ onComplete }: UserNameFormProps) {
-  const { setUserName } = useApp()
+  const { setUserName } = useUser()
   const [name, setName] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 

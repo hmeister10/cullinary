@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
-import { useApp } from "@/providers/app-provider"
+import { useUser } from "@/providers/user-provider"
+import { useMenu } from "@/providers/menu-provider"
 import { useRouter } from "next/navigation"
 import { isFirebasePermissionError } from "@/lib/firebase"
 import { UserNameForm } from "@/components/user-name-form"
@@ -14,7 +15,8 @@ export default function JoinMenuPage() {
   const [menuId, setMenuId] = useState("")
   const [isJoining, setIsJoining] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { joinMenu, hasSetName } = useApp()
+  const { hasSetName } = useUser()
+  const { joinMenu } = useMenu()
   const { toast } = useToast()
   const router = useRouter()
 

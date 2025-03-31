@@ -4,20 +4,35 @@ import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { useApp } from "@/providers/app-provider"
+import { useUser } from "@/providers/user-provider"
+import { useMenu } from "@/providers/menu-provider"
 import { useRouter, useParams } from "next/navigation"
 import { Calendar, Download, Share2 } from "lucide-react"
 import Image from "next/image"
 import { format, addDays, parseISO } from "date-fns"
+import { type MenuMatches } from "@/lib/types/menu-types"
+import { type Dish } from "@/lib/types/dish-types"
+
+// Define state structure for fetched dishes
+interface FetchedMatches {
+  breakfast: Dish[];
+  lunch: Dish[];
+  dinner: Dish[];
+  snack: Dish[];
+}
 
 export default function MenuPage() {
-  const { activeMenu, loadMenu, user, loading, hasSetName } = useApp()
+  const { user, loading, hasSetName } = useUser()
+  const { activeMenu, loadMenu } = useMenu()
   const { toast } = useToast()
   const router = useRouter()
   const params = useParams()
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const hasAttemptedLoad = useRef(false)
+  // State to hold the fully fetched dish objects for matches
+  const [matchedDishes, setMatchedDishes] = useState<FetchedMatches | null>(null)
+  const [isFetchingMatches, setIsFetchingMatches] = useState(false)
 
   useEffect(() => {
     // Wait for user to be initialized before attempting to load menu
@@ -100,7 +115,49 @@ export default function MenuPage() {
     
     loadMenuData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, hasSetName]) // Add loading and hasSetName as dependencies
+  }, [loading, hasSetName, params.id, loadMenu, user?.uid, activeMenu])
+
+  // Effect to fetch full dish details for matched IDs
+  useEffect(() => {
+    if (!activeMenu || !activeMenu.matches) return; // Need activeMenu with match IDs
+
+    const fetchMatchDetails = async () => {
+      setIsFetchingMatches(true);
+      console.log("MenuPage: Fetching details for matched dish IDs:", activeMenu.matches);
+      try {
+        const categories = Object.keys(activeMenu.matches) as Array<keyof MenuMatches>;
+        const fetchedData: Partial<FetchedMatches> = {};
+
+        for (const category of categories) {
+          const ids = activeMenu.matches[category];
+          if (ids && ids.length > 0) {
+            // Fetch dishes for this category's IDs
+            const dishPromises = ids.map(id => 
+                fetch(`/api/dishes?id=${encodeURIComponent(id)}`).then(res => res.json() as Promise<Dish | null>)
+            );
+            const dishes = await Promise.all(dishPromises);
+            // Filter out any null results (dish not found by API)
+            fetchedData[category] = dishes.filter((dish): dish is Dish => dish !== null); 
+          } else {
+            fetchedData[category] = []; // Empty array if no IDs
+          }
+        }
+        
+        console.log("MenuPage: Fetched dish details:", fetchedData);
+        setMatchedDishes(fetchedData as FetchedMatches); // Set the state with full objects
+
+      } catch (error) {
+        console.error("MenuPage: Error fetching matched dish details:", error);
+        toast({ title: "Error", description: "Could not load details for matched dishes.", variant: "destructive" });
+        setMatchedDishes(null); // Indicate error or incomplete data
+      } finally {
+        setIsFetchingMatches(false);
+      }
+    };
+
+    fetchMatchDetails();
+
+  }, [activeMenu, toast]); // Run when activeMenu (with IDs) changes
 
   const shareMenu = () => {
     toast({
@@ -121,7 +178,7 @@ export default function MenuPage() {
   }
 
   // Show loading state
-  if (isLoading) {
+  if (isLoading || isFetchingMatches) {
     return (
       <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
         <div className="text-center">
@@ -133,7 +190,7 @@ export default function MenuPage() {
   }
 
   // Show error state
-  if (loadError || !activeMenu) {
+  if (loadError || !activeMenu || !matchedDishes) {
     return (
       <div className="container flex flex-col items-center justify-center min-h-screen py-12 px-4">
         <div className="text-center max-w-md">
@@ -195,22 +252,22 @@ export default function MenuPage() {
                     <CardTitle className="text-sm">Breakfast</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3">
-                    {activeMenu.matches.breakfast[dayIndex] ? (
+                    {matchedDishes.breakfast[dayIndex] ? (
                       <div className="flex flex-col space-y-2">
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
                             src={
-                              activeMenu.matches.breakfast[dayIndex].image_url || "/placeholder.svg?height=64&width=64"
+                              matchedDishes.breakfast[dayIndex].image_url || "/assets/food-placeholder.svg"
                             }
-                            alt={activeMenu.matches.breakfast[dayIndex].name}
+                            alt={matchedDishes.breakfast[dayIndex].name}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.breakfast[dayIndex].name}</h3>
+                          <h3 className="font-medium text-sm">{matchedDishes.breakfast[dayIndex].name}</h3>
                           <p className="text-xs text-muted-foreground">
-                            {activeMenu.matches.breakfast[dayIndex].preference}
+                            {matchedDishes.breakfast[dayIndex].preference}
                           </p>
                         </div>
                       </div>
@@ -226,19 +283,19 @@ export default function MenuPage() {
                     <CardTitle className="text-sm">Lunch</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3">
-                    {activeMenu.matches.lunch[dayIndex] ? (
+                    {matchedDishes.lunch[dayIndex] ? (
                       <div className="flex flex-col space-y-2">
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
-                            src={activeMenu.matches.lunch[dayIndex].image_url || "/placeholder.svg?height=64&width=64"}
-                            alt={activeMenu.matches.lunch[dayIndex].name}
+                            src={matchedDishes.lunch[dayIndex].image_url || "/assets/food-placeholder.svg"}
+                            alt={matchedDishes.lunch[dayIndex].name}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.lunch[dayIndex].name}</h3>
-                          <p className="text-xs text-muted-foreground">{activeMenu.matches.lunch[dayIndex].preference}</p>
+                          <h3 className="font-medium text-sm">{matchedDishes.lunch[dayIndex].name}</h3>
+                          <p className="text-xs text-muted-foreground">{matchedDishes.lunch[dayIndex].preference}</p>
                         </div>
                       </div>
                     ) : (
@@ -253,20 +310,20 @@ export default function MenuPage() {
                     <CardTitle className="text-sm">Dinner</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3">
-                    {activeMenu.matches.dinner[dayIndex] ? (
+                    {matchedDishes.dinner[dayIndex] ? (
                       <div className="flex flex-col space-y-2">
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
-                            src={activeMenu.matches.dinner[dayIndex].image_url || "/placeholder.svg?height=64&width=64"}
-                            alt={activeMenu.matches.dinner[dayIndex].name}
+                            src={matchedDishes.dinner[dayIndex].image_url || "/assets/food-placeholder.svg"}
+                            alt={matchedDishes.dinner[dayIndex].name}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.dinner[dayIndex].name}</h3>
+                          <h3 className="font-medium text-sm">{matchedDishes.dinner[dayIndex].name}</h3>
                           <p className="text-xs text-muted-foreground">
-                            {activeMenu.matches.dinner[dayIndex].preference}
+                            {matchedDishes.dinner[dayIndex].preference}
                           </p>
                         </div>
                       </div>
@@ -282,19 +339,19 @@ export default function MenuPage() {
                     <CardTitle className="text-sm">Snack</CardTitle>
                   </CardHeader>
                   <CardContent className="p-3">
-                    {activeMenu.matches.snack[dayIndex] ? (
+                    {matchedDishes.snack[dayIndex] ? (
                       <div className="flex flex-col space-y-2">
                         <div className="relative h-16 w-full rounded-md overflow-hidden">
                           <Image
-                            src={activeMenu.matches.snack[dayIndex].image_url || "/placeholder.svg?height=64&width=64"}
-                            alt={activeMenu.matches.snack[dayIndex].name}
+                            src={matchedDishes.snack[dayIndex].image_url || "/assets/food-placeholder.svg"}
+                            alt={matchedDishes.snack[dayIndex].name}
                             fill
                             className="object-cover"
                           />
                         </div>
                         <div>
-                          <h3 className="font-medium text-sm">{activeMenu.matches.snack[dayIndex].name}</h3>
-                          <p className="text-xs text-muted-foreground">{activeMenu.matches.snack[dayIndex].preference}</p>
+                          <h3 className="font-medium text-sm">{matchedDishes.snack[dayIndex].name}</h3>
+                          <p className="text-xs text-muted-foreground">{matchedDishes.snack[dayIndex].preference}</p>
                         </div>
                       </div>
                     ) : (

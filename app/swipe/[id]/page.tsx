@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from "react"
 import { Suspense } from "react"
 import dynamic from 'next/dynamic'
 import { Header } from "@/components/header"
-import { useApp } from "@/providers/app-provider"
+import { useUser } from "@/providers/user-provider"
+import { useMenu } from "@/providers/menu-provider"
 import { useRouter, useParams } from "next/navigation"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,8 @@ const Loading = () => (
 
 // Main page component
 export default function SwipeWithMenuPage() {
-  const { loadMenu, user, loading, hasSetName, activeMenu } = useApp()
+  const { user, loading, hasSetName } = useUser()
+  const { loadMenu, activeMenu } = useMenu()
   const router = useRouter()
   const params = useParams()
   const { toast } = useToast()

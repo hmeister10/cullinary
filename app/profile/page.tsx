@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Header } from "@/components/header"
-import { useApp } from "@/providers/app-provider"
+import { useUser } from "@/providers/user-provider"
 import { useToast } from "@/hooks/use-toast"
 import { QuickSetup } from "./components/QuickSetup"
 import { DetailedProfile } from "./components/DetailedProfile"
@@ -26,7 +26,7 @@ interface DietaryPreferences {
 }
 
 export default function ProfilePage() {
-  const { user, updateUserProfile, loading } = useApp()
+  const { user, updateUserProfile, loading } = useUser()
   const { toast } = useToast()
   const [isSaving, setIsSaving] = useState(false)
   const [showQuickSetup, setShowQuickSetup] = useState(true)

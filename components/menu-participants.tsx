@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useApp } from "@/providers/app-provider"
+import { useMenu } from "@/providers/menu-provider"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Share2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ interface MenuParticipantsProps {
 }
 
 export function MenuParticipants({ menuId }: MenuParticipantsProps) {
-  const { getMenuParticipants } = useApp()
+  const { getMenuParticipants } = useMenu()
   const [participants, setParticipants] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSharing, setIsSharing] = useState(false)

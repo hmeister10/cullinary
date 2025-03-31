@@ -1,18 +1,7 @@
 import { Dish, MealCategory, DietPreference, CuisineType } from "@/lib/types/dish-types"
 import { dishes } from "@/lib/data/mock-dishes"
 import { ApiDishDataSource } from "./api-dish-data-source"
-
-/**
- * Interface for any data source that provides dish data
- */
-interface DishDataSource {
-  getAllDishes(): Promise<Dish[]>
-  getDishById(id: string): Promise<Dish | undefined>
-  getDishByCategory(category: MealCategory): Promise<Dish[]>
-  getDishByPreference(preference: DietPreference): Promise<Dish[]>
-  getDishByCuisine(cuisine: CuisineType): Promise<Dish[]>
-  searchDishes(query: string): Promise<Dish[]>
-}
+import { type DishDataSource } from "./dish-data-source"
 
 /**
  * Mock implementation of DishDataSource using hardcoded data
@@ -177,7 +166,7 @@ export class DishService {
    */
   public async getHealthyDishes(): Promise<Dish[]> {
     const dishes = await this.dataSource.getAllDishes()
-    return dishes.filter(dish => dish.is_healthy)
+    return dishes.filter((dish: Dish) => dish.is_healthy)
   }
 
   /**
@@ -186,7 +175,7 @@ export class DishService {
   public async getDishesBySpiceLevel(level: "Mild" | "Medium" | "Spicy" | "All"): Promise<Dish[]> {
     const dishes = await this.dataSource.getAllDishes()
     if (level === "All") return dishes
-    return dishes.filter(dish => dish.spice_level === level)
+    return dishes.filter((dish: Dish) => dish.spice_level === level)
   }
 
   /**
@@ -194,7 +183,7 @@ export class DishService {
    */
   public async getQuickDishes(): Promise<Dish[]> {
     const dishes = await this.dataSource.getAllDishes()
-    return dishes.filter(dish => dish.preparation_time !== undefined && dish.preparation_time <= 15)
+    return dishes.filter((dish: Dish) => dish.preparation_time !== undefined && dish.preparation_time <= 15)
   }
 }
 

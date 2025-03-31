@@ -2,11 +2,11 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useApp } from "@/providers/app-provider"
+import { useMenu } from "@/providers/menu-provider"
 import { useToast } from "@/hooks/use-toast"
 
 export default function MenuRedirectPage() {
-  const { activeMenu, loadMenu } = useApp()
+  const { activeMenu, loadMenu } = useMenu()
   const router = useRouter()
   const searchParams = useSearchParams()
   const hasRedirected = useRef(false)

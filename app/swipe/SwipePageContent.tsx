@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
-import { useApp } from "@/providers/app-provider"
+import { useUser } from "@/providers/user-provider"
+import { useMenu } from "@/providers/menu-provider"
 import { useRouter, useSearchParams } from "next/navigation"
 import type { Dish } from "@/lib/types/dish-types"
 import { UserNameForm } from "@/components/user-name-form"
@@ -10,13 +11,16 @@ import { Tabs } from "@/components/ui/tabs"
 import { MenuHeader } from "./components/MenuHeader"
 import { MealTimeTabs } from "@/app/swipe/components/MealTimeTabs"
 import { DishSwipeSection } from "@/app/swipe/components/DishSwipeSection"
+import { type Menu } from "@/lib/types/menu-types"
 
 interface SwipePageContentProps {
   menuIdFromUrl?: string;
 }
 
 const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
-  const { activeMenu, joinMenu, hasSetName, loadMenu } = useApp()
+  const { user, hasSetName } = useUser()
+  const { activeMenu, joinMenu, loadMenu, subscribeToMenuUpdates } = useMenu()
+  const [currentDisplayMenu, setCurrentDisplayMenu] = useState<Menu | null>(activeMenu)
   const [currentMealTime, setCurrentMealTime] = useState<string>("breakfast")
   const [isJoining, setIsJoining] = useState(false)
   const [isLoadingMenu, setIsLoadingMenu] = useState(false)
@@ -97,6 +101,45 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
     }
   }, [hasSetName, menuId, activeMenu, isJoining, joinMenuFromUrl, router, loadMenu, isLoadingMenu]);
 
+  // Effect to subscribe to real-time updates for the active menu
+  useEffect(() => {
+    // Make sure we have a menu ID to subscribe to
+    const idToSubscribe = currentDisplayMenu?.menu_id || activeMenu?.menu_id;
+    if (!idToSubscribe || !subscribeToMenuUpdates || !user) {
+        // If there's no active menu ID or user, we can't subscribe.
+        // Clear local state if it wasn't already null.
+        if (currentDisplayMenu) setCurrentDisplayMenu(null);
+        return; 
+    }
+
+    console.log(`SwipePageContent: Setting up listener for active menu: ${idToSubscribe}`);
+
+    // Subscribe to updates
+    const unsubscribe = subscribeToMenuUpdates(
+        idToSubscribe,
+        (updatedMenuData: Menu | null) => {
+            console.log("SwipePageContent: Received menu update from listener:", updatedMenuData);
+            setCurrentDisplayMenu(updatedMenuData); // Update local state with fresh data
+            // Optional: Add toast or other feedback on update?
+        }
+    );
+
+    // Cleanup subscription on unmount or when menu ID changes
+    return () => {
+        console.log(`SwipePageContent: Cleaning up listener for menu: ${idToSubscribe}`);
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
+
+    // Dependencies: subscribe function, user, and the ID we are subscribed to.
+  }, [subscribeToMenuUpdates, user?.uid, currentDisplayMenu?.menu_id, activeMenu?.menu_id]); 
+
+  // Update local state if context activeMenu changes (e.g., after initial load)
+  useEffect(() => {
+    setCurrentDisplayMenu(activeMenu);
+  }, [activeMenu]);
+
   // Handle meal time change
   const handleMealTimeChange = useCallback((mealTime: string) => {
     setCurrentMealTime(mealTime);
@@ -123,8 +166,8 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
 
   return (
     <div className="container flex flex-col items-center min-h-screen py-6 px-4">
-      {/* Menu Header - Shows menu completion, participants, quick links */}
-      <MenuHeader menu={activeMenu} />
+      {/* Pass local state to MenuHeader */}
+      <MenuHeader menu={currentDisplayMenu} />
       
       <div className="w-full max-w-md mx-auto">
         <Tabs value={currentMealTime} onValueChange={handleMealTimeChange} className="w-full">
@@ -134,10 +177,10 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
             onMealTimeChange={handleMealTimeChange} 
           />
           
-          {/* Dish Swipe Section - Shows dish cards and handles swiping */}
+          {/* Pass local state to DishSwipeSection */}
           <DishSwipeSection 
             mealTime={currentMealTime}
-            menu={activeMenu}
+            menu={currentDisplayMenu}
           />
         </Tabs>
       </div>
