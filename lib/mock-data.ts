@@ -1,6 +1,9 @@
 // Import DietaryPreferences from local-storage
 import { DietaryPreferences } from "./local-storage";
-import { dishes, Dish } from "./dishes";
+// Import and re-export Dish type
+import { dishes, type Dish as OriginalDish } from "./dishes";
+export type Dish = OriginalDish; // Re-export Dish
+
 export type MenuStatus = "pending" | "in_progress" | "completed"
 
 export interface MenuMatches {
@@ -17,6 +20,8 @@ export interface Menu {
   participants: string[]
   matches: MenuMatches
   status: MenuStatus
+  player1Id?: string 
+  player2Id?: string 
 }
 
 export interface UserData {

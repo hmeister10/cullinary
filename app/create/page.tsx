@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
@@ -12,28 +12,115 @@ import { cn } from "@/lib/utils"
 import { useApp } from "@/providers/app-provider"
 import { useRouter } from "next/navigation"
 import { UserNameForm } from "@/components/user-name-form"
+import { type Menu } from "@/lib/mock-data"
+import type { Unsubscribe } from "firebase/firestore"
 
 export default function CreateMenuPage() {
   const [startDate, setStartDate] = useState<Date>(new Date())
   const [menuId, setMenuId] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [isSharing, setIsSharing] = useState(false)
-  const { createMenu, hasSetName } = useApp()
+  const [partnerJoined, setPartnerJoined] = useState(false)
+  const [otherParticipantNames, setOtherParticipantNames] = useState<string[]>([])
+  const [fetchedParticipantIds, setFetchedParticipantIds] = useState<string[]>([])
+  const { createMenu, hasSetName, subscribeToMenuUpdates, user, getUserNamesByIds } = useApp()
   const { toast } = useToast()
   const router = useRouter()
   const createRequestInProgress = useRef(false)
 
+  const formatParticipantNames = (names: string[]): string => {
+    if (names.length === 0) return "";
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} and ${names[1]}`;
+    return `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`;
+  };
+
+  useEffect(() => {
+    if (!menuId || !subscribeToMenuUpdates || !user || !getUserNamesByIds) {
+      setPartnerJoined(false)
+      setOtherParticipantNames([])
+      setFetchedParticipantIds([])
+      return
+    }
+
+    console.log(`CreatePage: Setting up listener for menu: ${menuId}`)
+
+    let isFetchingNames = false;
+
+    const unsubscribe = subscribeToMenuUpdates(
+      menuId,
+      async (menuData: Menu | null) => {
+        console.log("CreatePage: Received menu update:", menuData)
+        if (menuData && user) {
+          const participants = menuData.participants || [];
+          const currentOtherParticipantIds = participants.filter(pId => pId !== user.uid).sort();
+          
+          const isReady = currentOtherParticipantIds.length > 0;
+          setPartnerJoined(isReady);
+
+          console.log(`CreatePage: Readiness check: otherParticipants=${JSON.stringify(currentOtherParticipantIds)}, currentUser=${user.uid}, isReady=${isReady}`);
+
+          const hasIdListChanged = JSON.stringify(currentOtherParticipantIds) !== JSON.stringify(fetchedParticipantIds);
+          console.log(`CreatePage: Has ID list changed? ${hasIdListChanged} (Current: ${JSON.stringify(currentOtherParticipantIds)}, Fetched: ${JSON.stringify(fetchedParticipantIds)})`);
+
+          if (isReady && hasIdListChanged && !isFetchingNames) {
+            isFetchingNames = true;
+            console.log(`CreatePage: Participant list changed. Fetching names for: ${currentOtherParticipantIds.join(', ')}`);
+            
+            try {
+              const namesMap = await getUserNamesByIds(currentOtherParticipantIds);
+              const fetchedNames = currentOtherParticipantIds.map(id => namesMap.get(id) || `User...${id.substring(id.length - 4)}`).filter(name => !!name);
+              console.log(`CreatePage: Fetched names: ${fetchedNames.join(', ')}`);
+              
+              setOtherParticipantNames(fetchedNames);
+              setFetchedParticipantIds(currentOtherParticipantIds);
+
+              if (fetchedParticipantIds.length === 0) {
+                 toast({
+                   title: `${formatParticipantNames(fetchedNames)} Joined!`, 
+                   description: "The menu is ready to start.",
+                 })
+              }
+            } catch (error) {
+                 console.error("CreatePage: Error fetching participant names:", error);
+                 setOtherParticipantNames(currentOtherParticipantIds.map(id => `User...${id.substring(id.length - 4)}`));
+                 setFetchedParticipantIds(currentOtherParticipantIds);
+            } finally {
+                isFetchingNames = false; 
+            }
+          } else if (!isReady) {
+            if (otherParticipantNames.length > 0 || fetchedParticipantIds.length > 0) {
+                 console.log("CreatePage: No longer ready, clearing participant names.");
+                 setOtherParticipantNames([]);
+                 setFetchedParticipantIds([]);
+            }
+          }
+        } else {
+          console.warn(`CreatePage: Menu ${menuId} not found or deleted, or user missing.`);
+          setPartnerJoined(false)
+          setOtherParticipantNames([])
+          setFetchedParticipantIds([])
+        }
+      }
+    )
+
+    return () => {
+      console.log(`CreatePage: Cleaning up listener for menu: ${menuId}`)
+      if (unsubscribe) {
+        unsubscribe()
+      }
+    }
+  }, [menuId, subscribeToMenuUpdates, user?.uid, toast, getUserNamesByIds]);
+
   const handleCreateMenu = async () => {
-    // Prevent multiple simultaneous requests
     if (createRequestInProgress.current) return;
     
     try {
       createRequestInProgress.current = true;
       setIsCreating(true)
-      const endDate = addDays(startDate, 6) // 7 day menu
+      const endDate = addDays(startDate, 6)
       const id = await createMenu(startDate, endDate)
       
-      // Only update state if we got a valid ID back
       if (id) {
         setMenuId(id)
         toast({
@@ -75,14 +162,17 @@ export default function CreateMenuPage() {
   }
 
   const goToSwipeInterface = () => {
-    if (menuId) {
+    if (menuId && partnerJoined) {
       router.push(`/swipe?menu=${menuId}`)
-    } else {
-      router.push("/swipe")
+    } else if (menuId && !partnerJoined) {
+      toast({
+        variant: "default",
+        title: "Waiting",
+        description: "Waiting for your partner to join the menu.",
+      })
     }
   }
 
-  // Show name form if user hasn't set a name yet
   if (!hasSetName) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -148,12 +238,23 @@ export default function CreateMenuPage() {
                   </Button>
                 </div>
               </div>
-              <div className="flex flex-col space-y-2 w-full max-w-xs">
+              <div className="flex flex-col space-y-3 w-full max-w-xs">
                 <Button onClick={shareViaWhatsApp} disabled={isSharing} className="flex items-center justify-center">
                   <Share2 className="mr-2 h-4 w-4" />
                   Share via WhatsApp
                 </Button>
-                <p className="text-xs text-center text-muted-foreground mt-2">Waiting for your partner to join...</p>
+                
+                <div className="text-xs text-center text-muted-foreground pt-2">
+                   <p className="font-medium mb-1">Participants:</p>
+                   <p>{user?.name || `You (User...${user?.uid.substring(user.uid.length - 4)})`}</p>
+                   {otherParticipantNames.map((name, index) => (
+                      <p key={index}>{name}</p>
+                   ))}
+                   {!partnerJoined && otherParticipantNames.length === 0 && (
+                      <p className="italic mt-1">Waiting for others to join...</p>
+                   )}
+                </div>
+
               </div>
             </div>
           )}
@@ -169,8 +270,12 @@ export default function CreateMenuPage() {
               </Button>
             </>
           ) : (
-            <Button onClick={goToSwipeInterface} className="w-full">
-              Start Swiping
+            <Button 
+                onClick={goToSwipeInterface} 
+                className="w-full" 
+                disabled={!partnerJoined}
+            >
+              {partnerJoined ? "Start Making Your Menu!" : "Waiting for Participants"} 
             </Button>
           )}
         </CardFooter>

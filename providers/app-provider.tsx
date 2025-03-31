@@ -1,12 +1,13 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode, useCallback } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { mockDB, type Menu } from "@/lib/mock-data"
 import type { Dish } from "@/lib/types/dish-types"
 import { firestoreService } from "@/lib/firestore-service"
 import { getUserId, saveUserId, saveMenuToStorage, getUserName, saveUserName, hasUserName, getUserPreferences, saveUserPreferences } from "@/lib/local-storage"
 import { isFirebasePermissionError } from "@/lib/firebase"
+import type { Unsubscribe } from "firebase/firestore"
 
 interface UserSwipes {
   [dishId: string]: boolean // true for right swipe, false for left swipe
@@ -53,6 +54,9 @@ interface AppContextType {
   removeDishFromShortlist: (dish: Dish, category: string) => Promise<boolean>
   updateUser: (user: User) => void // Add updateUser method
   loadMenu: (menuId: string) => Promise<boolean> // Add loadMenu function
+  subscribeToMenuUpdates: (menuId: string, callback: (menu: Menu | null) => void) => Unsubscribe;
+  getUserNameById: (userId: string) => Promise<string | null>;
+  getUserNamesByIds: (userIds: string[]) => Promise<Map<string, string | null>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
@@ -557,30 +561,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  return (
-    <AppContext.Provider
-      value={{
-        user,
-        loading,
-        activeMenu,
-        userSwipes,
-        hasSetName,
-        createMenu,
-        joinMenu,
-        swipeOnDish,
-        fetchDishesToSwipe,
-        setUserName,
-        updateUserProfile,
-        getMenuParticipants,
-        deleteMenu,
-        removeDishFromShortlist,
-        updateUser,
-        loadMenu
-      }}
-    >
-      {children}
-    </AppContext.Provider>
-  )
+  // Implement subscribeToMenuUpdates with useCallback
+  const subscribeToMenuUpdates = useCallback((
+    menuId: string, 
+    callback: (menu: Menu | null) => void
+  ): Unsubscribe => {
+    console.log("AppProvider: Calling firestoreService.subscribeToMenuUpdates for menu:", menuId);
+    // Delegate to the firestoreService
+    return firestoreService.subscribeToMenuUpdates(menuId, callback);
+  }, []);
+
+  // Implement getUserNameById
+  const getUserNameById = useCallback(async (userId: string): Promise<string | null> => {
+    console.log("AppProvider: Calling firestoreService.getUserNameById for user:", userId);
+    // Delegate to the firestoreService
+    return firestoreService.getUserNameById(userId);
+  }, []); // Empty dependency array as firestoreService is static/stable
+
+  // Implement getUserNamesByIds
+  const getUserNamesByIds = useCallback(async (userIds: string[]): Promise<Map<string, string | null>> => {
+    console.log("AppProvider: Calling firestoreService.getUserNamesByIds for users:", userIds.join(', '));
+    // Delegate to the firestoreService
+    return firestoreService.getUserNamesByIds(userIds);
+  }, []); // Empty dependency array as firestoreService is static/stable
+
+  const contextValue: AppContextType = {
+    user,
+    loading,
+    activeMenu,
+    userSwipes,
+    hasSetName,
+    createMenu,
+    joinMenu,
+    swipeOnDish,
+    fetchDishesToSwipe,
+    setUserName,
+    updateUserProfile,
+    getMenuParticipants,
+    deleteMenu,
+    removeDishFromShortlist,
+    updateUser,
+    loadMenu,
+    subscribeToMenuUpdates,
+    getUserNameById, 
+    getUserNamesByIds, // Add the function to the context value
+  }
+
+  return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>
 }
 
 export function useApp() {

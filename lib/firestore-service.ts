@@ -10,11 +10,13 @@ import {
   where, 
   getDocs,
   serverTimestamp,
+  onSnapshot,
   type Firestore,
   type DocumentReference,
   type CollectionReference,
   type Timestamp,
-  type FieldValue
+  type FieldValue,
+  type Unsubscribe
 } from 'firebase/firestore';
 import { mockDB, type Dish, type Menu, type MenuMatches } from './mock-data';
 
@@ -49,6 +51,8 @@ export interface FirestoreMenu extends Omit<Menu, 'matches'> {
     snack: string[];
   };
   created_at: Timestamp | FieldValue; // Firestore timestamp or server timestamp
+  player1Id?: string; // Example: Creator ID
+  player2Id?: string; // Example: Partner ID
 }
 
 export interface FirestoreUser {
@@ -297,72 +301,24 @@ export const firestoreService = {
   
   // Helper: Get full menu matches with dish details
   async getMenuMatches(menuId: string, firestoreMatches: FirestoreMenu['matches']): Promise<MenuMatches> {
-    // Instead of using placeholder data, fetch the actual dish data from mockDB
     const allDishes = await mockDB.getAllDishes();
-    
-    // Create a map of dish_id to dish for quick lookup
     const dishMap = new Map<string, Dish>();
     allDishes.forEach((dish: Dish) => {
       dishMap.set(dish.dish_id, dish);
     });
     
+    // Helper function to safely map and filter IDs to Dishes
+    const mapAndFilterDishes = (ids: string[]): Dish[] => {
+      return ids
+        .map(id => dishMap.get(id)) // Map ID to Dish object (or undefined)
+        .filter((dish): dish is Dish => dish !== undefined); // Filter out undefined results
+    };
+
     return {
-      breakfast: firestoreMatches.breakfast.map(id => {
-        const dish = dishMap.get(id);
-        if (dish) return dish;
-        
-        // Fallback if dish not found
-        return { 
-          dish_id: id,
-          name: `Breakfast Dish ${id}`,
-          category: 'Breakfast',
-          is_healthy: true,
-          preference: 'Veg',
-          image_url: `/assets/food-placeholder.svg`
-        };
-      }),
-      lunch: firestoreMatches.lunch.map(id => {
-        const dish = dishMap.get(id);
-        if (dish) return dish;
-        
-        // Fallback if dish not found
-        return { 
-          dish_id: id,
-          name: `Lunch Dish ${id}`,
-          category: 'Lunch',
-          is_healthy: true,
-          preference: 'Veg',
-          image_url: `/assets/food-placeholder.svg`
-        };
-      }),
-      dinner: firestoreMatches.dinner.map(id => {
-        const dish = dishMap.get(id);
-        if (dish) return dish;
-        
-        // Fallback if dish not found
-        return { 
-          dish_id: id,
-          name: `Dinner Dish ${id}`,
-          category: 'Dinner',
-          is_healthy: true,
-          preference: 'Veg',
-          image_url: `/assets/food-placeholder.svg`
-        };
-      }),
-      snack: firestoreMatches.snack.map(id => {
-        const dish = dishMap.get(id);
-        if (dish) return dish;
-        
-        // Fallback if dish not found
-        return { 
-          dish_id: id,
-          name: `Snack Dish ${id}`,
-          category: 'Snack',
-          is_healthy: true,
-          preference: 'Veg',
-          image_url: `/assets/food-placeholder.svg`
-        };
-      })
+      breakfast: mapAndFilterDishes(firestoreMatches.breakfast),
+      lunch: mapAndFilterDishes(firestoreMatches.lunch),
+      dinner: mapAndFilterDishes(firestoreMatches.dinner),
+      snack: mapAndFilterDishes(firestoreMatches.snack)
     };
   },
   
@@ -536,5 +492,110 @@ export const firestoreService = {
       console.error('Error updating menu in Firestore:', error);
       throw error;
     }
-  }
+  },
+
+  // ADD subscribeToMenuUpdates function
+  subscribeToMenuUpdates(
+    menuId: string, 
+    callback: (menu: Menu | null) => void
+  ): Unsubscribe {
+    try {
+      const normalizedMenuId = menuId.toUpperCase();
+      console.log(`Firestore: Setting up listener for menu ID: ${normalizedMenuId}`);
+      const menuRef = getDocRef(MENUS_COLLECTION, normalizedMenuId);
+
+      // Use onSnapshot for real-time updates
+      const unsubscribe = onSnapshot(menuRef, async (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          console.log(`Firestore: Received update for menu: ${normalizedMenuId}`);
+          const menuData = docSnapshot.data() as FirestoreMenu;
+          
+          // Convert Firestore format to app format (including potential player IDs)
+          const appMenu: Menu = {
+            menu_id: menuData.menu_id,
+            start_date: menuData.start_date,
+            end_date: menuData.end_date,
+            participants: menuData.participants,
+            status: menuData.status,
+            // Map Firestore fields to your Menu type fields
+            // Ensure these fields exist on your Menu type in mock-data.ts
+            player1Id: menuData.player1Id, 
+            player2Id: menuData.player2Id, 
+            // Fetch and include matches
+            matches: await this.getMenuMatches(normalizedMenuId, menuData.matches)
+          };
+          callback(appMenu); // Pass the formatted data to the callback
+        } else {
+          console.log(`Firestore: Menu ${normalizedMenuId} does not exist or was deleted.`);
+          callback(null); // Notify the caller that the menu doesn't exist
+        }
+      }, (error) => {
+        console.error(`Firestore: Error in onSnapshot listener for menu ${normalizedMenuId}:`, error);
+        // Propagate error or handle as needed
+        callback(null); // Indicate an issue by passing null
+      });
+
+      // Return the unsubscribe function provided by onSnapshot
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error setting up menu subscription in Firestore:', error);
+      // Return a no-op function if setup fails, so the caller doesn't crash
+      return () => { console.warn("Firestore subscription setup failed, returning no-op unsubscribe.") }; 
+    }
+  },
+  // END subscribeToMenuUpdates function
+
+  // GET USER NAME BY ID
+  async getUserNameById(userId: string): Promise<string | null> {
+    try {
+      console.log(`Firestore: Attempting to get user name for ID: ${userId}`);
+      const userDoc = await getDoc(getDocRef(USERS_COLLECTION, userId));
+      
+      if (!userDoc.exists()) {
+        console.log(`Firestore: User with ID ${userId} not found`);
+        return null;
+      }
+      
+      const userData = userDoc.data() as FirestoreUser;
+      console.log(`Firestore: Found user ${userId}, name: ${userData.name}`);
+      return userData.name || null; // Return name or null if not set
+    } catch (error) {
+      console.error(`Error getting user name for ID ${userId} from Firestore:`, error);
+      // Don't throw, just return null to indicate failure
+      return null; 
+    }
+  },
+  // END GET USER NAME BY ID
+
+  // GET USER NAMES BY IDS
+  async getUserNamesByIds(userIds: string[]): Promise<Map<string, string | null>> {
+    const namesMap = new Map<string, string | null>();
+    if (!userIds || userIds.length === 0) {
+      return namesMap; // Return empty map if no IDs provided
+    }
+
+    console.log(`Firestore: Attempting to get user names for IDs: ${userIds.join(', ')}`);
+    
+    // Fetch user documents in parallel for efficiency
+    const promises = userIds.map(async (id) => {
+      try {
+        const userDoc = await getDoc(getDocRef(USERS_COLLECTION, id));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as FirestoreUser;
+          namesMap.set(id, userData.name || null); // Store name or null
+        } else {
+          namesMap.set(id, null); // User not found
+        }
+      } catch (error) {
+        console.error(`Error getting user name for ID ${id} from Firestore:`, error);
+        namesMap.set(id, null); // Set null on error
+      }
+    });
+
+    await Promise.all(promises); // Wait for all fetches to complete
+    
+    console.log(`Firestore: Fetched names map:`, namesMap);
+    return namesMap;
+  },
+  // END GET USER NAMES BY IDS
 }; 
