@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import Image from "next/image"
 import Link from "next/link"
 import { format } from "date-fns"
-import { Calendar, Clock, Trash2, Utensils, ListChecks, PlusCircle } from "lucide-react"
+import { Calendar, Clock, Trash2, Utensils, ListChecks, PlusCircle, FilePlus2, Link as LinkIcon, FolderSearch, Users } from "lucide-react"
 import { useUser } from "@/providers/user-provider"
 import { useMenu } from "@/providers/menu-provider"
 import { Header } from "@/components/header"
@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
-import { Users } from "lucide-react"
 
 // Define a simpler interface for QuickSetup preferences
 interface QuickSetupPreferences {
@@ -41,42 +40,8 @@ export default function HomePage() {
   const { deleteMenu, userMenuList, isLoadingUserMenus } = useMenu()
   const [menuToDelete, setMenuToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [featuredDishes, setFeaturedDishes] = useState<Dish[]>([])
-  const [isLoadingDishes, setIsLoadingDishes] = useState(false)
   const { toast } = useToast()
   const router = useRouter()
-  const hasLoadedDishes = useRef(false)
-
-  // Load featured dishes from API
-  useEffect(() => {
-    const fetchFeaturedDishes = async () => {
-      if (hasLoadedDishes.current || userLoading || !hasSetName) return
-      
-      try {
-        setIsLoadingDishes(true)
-        hasLoadedDishes.current = true
-        
-        // Get user's dietary preferences
-        const dietPreference = user?.dietaryPreferences?.isVegetarian ? 'Veg' : undefined
-        
-        // Fetch dishes from API
-        const response = await fetch(`/api/dishes?limit=6${dietPreference ? `&preference=${dietPreference}` : ''}`)
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch dishes: ${response.statusText}`)
-        }
-        
-        const data = await response.json()
-        setFeaturedDishes(data.dishes || [])
-      } catch (error) {
-        console.error('Error fetching featured dishes:', error)
-      } finally {
-        setIsLoadingDishes(false)
-      }
-    }
-    
-    fetchFeaturedDishes()
-  }, [userLoading, hasSetName, user])
 
   // Handle quick setup completion
   const handleQuickSetupComplete = async (quickPreferences: QuickSetupPreferences) => {
@@ -241,251 +206,64 @@ export default function HomePage() {
       </AlertDialog>
       
       <Header title="Cullinary" />
-      <main className="flex-1">
-        <section className="container grid items-center justify-center gap-8 py-8 md:py-12 px-4 sm:px-8">
-          <div className="flex max-w-[980px] w-full flex-col items-center gap-6 text-center mx-auto">
-            <div className="relative">
-              <div className="absolute -top-12 -left-12 w-40 h-40 bg-primary/20 rounded-full blur-3xl opacity-70"></div>
-              <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-primary/20 rounded-full blur-3xl opacity-70"></div>
-              <h1 className="text-3xl font-bold leading-tight tracking-tighter md:text-5xl lg:text-6xl relative z-10">
-                Create Your Perfect <span className="text-primary">Weekly Menu</span> Together
-              </h1>
-            </div>
-            <p className="max-w-[700px] text-lg text-muted-foreground">
-              Swipe on meals with your partner and discover matches to build your perfect weekly menu.
-            </p>
-          </div>
+      <main className="flex-1 flex items-center justify-center py-12 md:py-24">
+        <div className="container grid max-w-4xl grid-cols-1 gap-8 px-4 md:grid-cols-3 md:px-8">
           
-          {/* Menu Tiles */}
-          <div className="w-full max-w-4xl mx-auto mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Link href="/create" className="block group">
-              <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
-                <CardHeader className="pb-3 pt-4">
-                  <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
-                    Create Menu
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
-                    <ListChecks className="h-3.5 w-3.5" />
-                    Start a new menu and invite your partner
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                    View Menu
-                  </Button>
-                </CardContent>
-              </Card>
-            </Link>
-            
-            <Link href="/join" className="block group">
-              <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
-                <CardHeader className="pb-3 pt-4">
-                  <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
-                    Join Menu
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
-                    <ListChecks className="h-3.5 w-3.5" />
-                    Join an existing menu with a code
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                    View Menu
-                  </Button>
-                </CardContent>
-              </Card>
-            </Link>
-            
-            <Link href="/recipes" className="block group">
-              <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
-                <CardHeader className="pb-3 pt-4">
-                  <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
-                    Browse Recipes
-                  </CardTitle>
-                  <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
-                    <ListChecks className="h-3.5 w-3.5" />
-                    Explore our collection of recipes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pb-3">
-                  <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                    View Menu
-                  </Button>
-                </CardContent>
-              </Card>
-            </Link>
-          </div>
-          
-          {/* Recent Menus Section */}
-          <div className="w-full max-w-5xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight mb-8 text-center">Your Menus</h2>
-            
-            {isLoadingUserMenus ? (
-              // Loading state for menus specifically
-              <Card className="bg-muted/50 border-dashed border-gray-300">
-                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
-                  <h3 className="text-xl font-medium text-muted-foreground">Loading your menus...</h3>
-                </CardContent>
-              </Card>
-            ) : userMenuList.length > 0 ? (
-              // Display fetched menus
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {userMenuList.map((menu) => (
-                  <Link href={`/menu/${menu.menu_id}`} key={menu.menu_id} className="block group">
-                    <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 overflow-hidden">
-                      {/* Optional Image/Icon for Menu Card */}
-                      {/* <div className="bg-gray-100 h-32 flex items-center justify-center"> <ListChecks className="w-12 h-12 text-gray-400"/> </div> */}
-                      <CardHeader className="pb-3 pt-4">
-                        <CardTitle className="text-lg md:text-xl group-hover:text-primary transition-colors truncate">
-                          {menu.name || `Menu ${menu.menu_id.substring(0,6)}`} {/* Display name or default */}
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-1.5 text-xs pt-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {format(new Date(menu.start_date), "MMM d")} - {format(new Date(menu.end_date), "MMM d, yyyy")}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-3">
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3.5 w-3.5" />
-                          Created {menu.createdAt ? format(new Date(menu.createdAt.seconds * 1000), "MMM d, yyyy") : 'recently'}
-                        </div>
-                         <div className="flex items-center gap-1 text-xs text-muted-foreground pt-1">
-                            {/* Simple participant count */} 
-                            <Users className="h-3.5 w-3.5" /> 
-                            {menu.participants?.length || 0} participant(s)
-                        </div>
-                      </CardContent>
-                      <CardFooter className="flex justify-between items-center bg-muted/30 py-2 px-4 border-t">
-                        <Button variant="ghost" size="sm" className="text-sm h-8 px-3 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                          View Menu
-                        </Button>
-                        {/* Show delete button only if current user is the creator */}
-                        {user?.uid === menu.createdBy && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8 w-8 rounded-full"
-                            onClick={(e) => handleDeleteMenu(menu.menu_id, e)}
-                            aria-label="Delete Menu"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </CardFooter>
-                    </Card>
-                  </Link>
-                ))}
-                 {/* Optional: Add a card to create a new menu */}
-                <Link href="/create" className="block group">
-                 <Card className="h-full transition-all hover:shadow-lg border-2 border-dashed border-gray-300 hover:border-primary flex items-center justify-center text-center text-muted-foreground hover:text-primary">
-                    <CardContent className="pt-6">
-                        <PlusCircle className="h-10 w-10 mx-auto mb-3" />
-                        <p className="font-medium">Create New Menu</p>
-                    </CardContent>
-                 </Card>
-                </Link>
-              </div>
-            ) : (
-              // Empty state when no menus found
-              <Card className="bg-muted/50 border-dashed border-gray-300">
-                <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="rounded-full bg-primary/10 p-5 mb-5">
-                    <Image 
-                      src="/assets/empty-menu.svg" 
-                      alt="No menus" 
-                      width={64} 
-                      height={64} 
-                      className="opacity-75"
-                    />
-                  </div>
-                  <h3 className="text-xl font-medium mb-2">No menus yet!</h3>
-                  <p className="text-muted-foreground mb-6 max-w-sm">
-                    It looks like you haven't created or joined any menus. Get started by creating one.
-                  </p>
-                  <Button onClick={() => router.push('/create')} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                    Create Your First Menu
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-          
-          {/* Featured Dishes Section */}
-          {hasSetName && (
-            <div className="w-full max-w-4xl mx-auto mt-12">
-              <h2 className="text-2xl font-bold mb-6">Featured Dishes</h2>
-              
-              {isLoadingDishes ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <Link href="/create" className="block group">
+            <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 text-center py-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl md:text-2xl group-hover:text-primary transition-colors">
+                  Create Menu
+                </CardTitle>
+                <CardDescription className="pt-2">
+                  Start a new menu and invite your partner
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center items-center pt-4">
+                <div className="bg-primary/10 rounded-full p-4">
+                  <FilePlus2 className="h-10 w-10 text-primary" />
                 </div>
-              ) : featuredDishes.length > 0 ? (
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {featuredDishes.map((dish) => (
-                    <Card key={dish.dish_id} className="overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="relative h-48 w-full">
-                        <Image
-                          src={dish.image_url || "/assets/food-placeholder.svg"}
-                          alt={dish.name}
-                          fill
-                          className="object-cover"
-                        />
-                        <div className="absolute top-2 right-2 flex gap-1">
-                          <Badge variant={dish.preference === 'Veg' ? 'secondary' : 'default'}>
-                            {dish.preference}
-                          </Badge>
-                          {dish.is_healthy && (
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                              Healthy
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg">{dish.name}</CardTitle>
-                        <CardDescription className="line-clamp-1">
-                          {dish.cuisines.join(', ')}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="pb-2">
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {dish.description}
-                        </p>
-                      </CardContent>
-                      <CardFooter>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full"
-                          onClick={() => router.push(`/recipes/${dish.dish_id}`)}
-                        >
-                          <Utensils className="h-4 w-4 mr-2" />
-                          View Recipe
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
+              </CardContent>
+            </Card>
+          </Link>
+          
+          <Link href="/join" className="block group">
+            <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 text-center py-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl md:text-2xl group-hover:text-primary transition-colors">
+                  Join Menu
+                </CardTitle>
+                <CardDescription className="pt-2">
+                  Join an existing menu with a code
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center items-center pt-4">
+                <div className="bg-primary/10 rounded-full p-4">
+                   <LinkIcon className="h-10 w-10 text-primary" />
                 </div>
-              ) : (
-                <Card className="bg-muted/50">
-                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="rounded-full bg-primary/10 p-4 mb-4">
-                      <Utensils className="h-12 w-12 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-xl font-medium mb-2">No featured dishes</h3>
-                    <p className="text-muted-foreground mb-6 max-w-md">
-                      We couldn't load any featured dishes at the moment
-                    </p>
-                    <Button onClick={() => router.push('/recipes')}>
-                      Browse All Recipes
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-        </section>
+              </CardContent>
+            </Card>
+          </Link>
+          
+          <Link href="/recipes" className="block group">
+             <Card className="h-full transition-all hover:shadow-lg border border-border/50 hover:border-primary/50 text-center py-8">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-xl md:text-2xl group-hover:text-primary transition-colors">
+                  Browse Recipes
+                </CardTitle>
+                <CardDescription className="pt-2">
+                  Explore our collection of recipes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center items-center pt-4">
+                <div className="bg-primary/10 rounded-full p-4">
+                   <FolderSearch className="h-10 w-10 text-primary" />
+                 </div>
+              </CardContent>
+            </Card>
+          </Link>
+          
+        </div>
       </main>
     </div>
   )

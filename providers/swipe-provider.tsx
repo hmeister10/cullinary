@@ -1,21 +1,18 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, type ReactNode, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { firestoreService } from "@/lib/firestore-service";
+import { useUser } from "./user-provider";
+import { useMenu } from "./menu-provider";
+import { swipeService } from "@/lib/services/swipe-service";
+import type { Dish, DietPreference } from "@/lib/types/dish-types";
 import { type Menu, type MenuMatches } from "@/lib/types/menu-types";
-import type { Dish } from "@/lib/types/dish-types";
-import { useUser } from "./user-provider"; // Import user hook
-import { useMenu } from "./menu-provider"; // Import menu hook
-
-// Define the structure for UserSwipes locally or import from a shared type file
-interface UserSwipes {
-  [dishId: string]: boolean // true for right swipe, false for left swipe
-}
+import { type UserSwipes, type SwipeStatus } from "@/lib/types/swipe-types";
 
 // Define the context type for Swipe related state and functions
 interface SwipeContextType {
   userSwipes: UserSwipes;
+  isLoadingSwipes: boolean;
   fetchDishesToSwipe: (category: string) => Promise<Dish[]>;
   swipeOnDish: (dish: Dish, isLiked: boolean) => Promise<boolean>;
   removeDishFromShortlist: (dish: Dish, category: string) => Promise<boolean>;
@@ -26,123 +23,193 @@ const SwipeContext = createContext<SwipeContextType | undefined>(undefined);
 
 // Create the provider component
 export function SwipeProvider({ children }: { children: ReactNode }) {
-  const { user } = useUser(); // Consume user context
-  const { activeMenu, updateActiveMenu } = useMenu(); // Consume menu context (assuming setActiveMenu exists or we pass it down)
-  const [userSwipes, setUserSwipes] = useState<UserSwipes>({});
+  const { user } = useUser();
+  const { activeMenu, updateActiveMenu } = useMenu();
   const { toast } = useToast();
+  const [userSwipes, setUserSwipes] = useState<UserSwipes>({});
+  const [isLoadingSwipes, setIsLoadingSwipes] = useState(false);
 
-  // Fetch dishes to swipe for a specific category
-  const fetchDishesToSwipe = useCallback(async (category: string): Promise<Dish[]> => {
-    if (!user) throw new Error("User not authenticated");
-    if (!activeMenu) throw new Error("No active menu selected");
-
-    // Always fetch the latest swipes from Firestore first
-    let currentSwipes: UserSwipes = {};
-    try {
-      console.log(`SwipeProvider: Fetching latest user swipes from Firestore for menu ${activeMenu.menu_id}`);
-      currentSwipes = await firestoreService.getUserSwipesForMenu(user.uid, activeMenu.menu_id);
-      setUserSwipes(currentSwipes); // Update local state as well
-    } catch (error) {
-      console.error("SwipeProvider: Error fetching user swipes:", error);
-      toast({ variant: "destructive", title: "Error", description: "Could not load swipe history." });
-      // Decide if we should proceed without swipes or return empty
-      // Proceeding might show already swiped cards, returning empty might be safer
-      return []; 
-    }
-
-    try {
-      console.log(`SwipeProvider: Fetching dishes for category: ${category} from API`);
-
-      // Fetch dishes from the API endpoint
-      const apiUrl = `/api/dishes?category=${encodeURIComponent(category)}&limit=100`; // Base URL
-      // TODO: Add preference and exclude logic back carefully
-      console.log("SwipeProvider: Constructed API URL:", apiUrl); // Log the final URL
-      const response = await fetch(apiUrl);
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
-      const data = await response.json();
-      const allDishesForCategory: Dish[] = data.dishes || [];
-      if (!Array.isArray(allDishesForCategory)) throw new Error("Invalid response format from dishes API.");
-
-      // Filter swiped using the freshly fetched swipes
-      let filteredDishes = allDishesForCategory.filter(dish => !currentSwipes.hasOwnProperty(dish.dish_id));
-      console.log(`SwipeProvider: Dishes before swipe filter: ${allDishesForCategory.length}, after: ${filteredDishes.length}`);
-
-      // Apply dietary preferences
-      const prefs = user.dietaryPreferences;
-      if (prefs) {
-        if (prefs.isVegetarian) {
-          const countBefore = filteredDishes.length;
-          filteredDishes = filteredDishes.filter(dish => dish.preference === "Veg");
-          console.log(`SwipeProvider: Filtered by vegetarian. Before: ${countBefore}, After: ${filteredDishes.length}`);
-        }
-        // ... other preference filters ...
+  // Fetch user swipes when active menu or user changes
+  useEffect(() => {
+    const loadSwipes = async () => {
+      if (!user || !activeMenu) {
+        setUserSwipes({});
+        setIsLoadingSwipes(false);
+        return;
       }
-      return filteredDishes;
-    } catch (error) {
-      console.error("SwipeProvider: Error fetching dishes:", error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to fetch dishes." });
+      setIsLoadingSwipes(true);
+      console.log("SwipeProvider: useEffect fetching user swipes...");
+      try {
+        const swipes = await swipeService.getUserSwipesForMenu(user.uid, activeMenu.menu_id);
+        setUserSwipes(swipes);
+        console.log(`SwipeProvider: Successfully loaded ${Object.keys(swipes).length} swipes.`);
+      } catch (error) {
+        console.error("SwipeProvider: Error fetching swipes in useEffect:", error);
+        setUserSwipes({});
+        toast({ variant: "destructive", title: "Error", description: "Could not load your swipe history." });
+      } finally {
+        setIsLoadingSwipes(false);
+      }
+    };
+    loadSwipes();
+  }, [user, activeMenu, toast]);
+
+  // Fetch dishes for swiping
+  const fetchDishesToSwipe = useCallback(async (category: string): Promise<Dish[]> => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Error", description: "User not authenticated." });
       return [];
     }
-  }, [user, activeMenu, toast, setUserSwipes]); // Updated dependencies
+    if (!activeMenu) {
+      toast({ variant: "destructive", title: "Error", description: "No active menu selected." });
+      return [];
+    }
+    if (isLoadingSwipes) {
+      console.log("SwipeProvider: Still loading swipes, waiting to fetch dishes...");
+      return [];
+    }
 
-  // Swipe on dish (depends on user, activeMenu)
+    const currentSwipes = userSwipes;
+    console.log(`SwipeProvider: Fetching dishes for category '${category}'. Using ${Object.keys(currentSwipes).length} swipes from state to filter.`);
+
+    try {
+      const apiUrl = `/api/dishes?category=${encodeURIComponent(category)}&limit=100`;
+      console.log("SwipeProvider: Fetching dishes from API URL:", apiUrl);
+      const response = await fetch(apiUrl);
+
+      if (!response.ok) {
+        const errorBody = await response.text();
+        console.error(`SwipeProvider: API Error ${response.status}: ${errorBody}`);
+        throw new Error(`Failed to fetch dishes: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const allDishesForCategory: Dish[] = data.dishes || [];
+
+      if (!Array.isArray(allDishesForCategory)) {
+        console.error("SwipeProvider: Invalid response format from dishes API", data);
+        throw new Error("Invalid response format from dishes API.");
+      }
+      console.log(`SwipeProvider: Received ${allDishesForCategory.length} dishes for category '${category}' from API.`);
+
+      let filteredDishes = allDishesForCategory.filter(dish => !currentSwipes.hasOwnProperty(dish.dish_id));
+      console.log(`SwipeProvider: Dishes after swipe filter: ${filteredDishes.length}`);
+
+      const prefs = user?.dietaryPreferences;
+      if (prefs) {
+        const originalCount = filteredDishes.length;
+        
+        if (prefs.isVegetarian) {
+          filteredDishes = filteredDishes.filter(dish => dish.preference === "Veg");
+        }
+
+        if (prefs.dietType === "Vegan") { 
+          filteredDishes = filteredDishes.filter(dish => dish.preference === "Vegan");
+        }
+        
+        if (prefs.healthTags && prefs.healthTags.length > 0) {
+          prefs.healthTags.forEach(tag => {
+            filteredDishes = filteredDishes.filter(dish => 
+              dish.dietary_tags?.includes(tag)
+            );
+          });
+        }
+
+        if (filteredDishes.length < originalCount) {
+          console.log(`SwipeProvider: Dishes after preference filter: ${filteredDishes.length}`);
+        }
+      }
+
+      return filteredDishes;
+    } catch (error) {
+      console.error("SwipeProvider: Error fetching dishes to swipe:", error);
+      toast({ variant: "destructive", title: "Error Fetching Dishes", description: error instanceof Error ? error.message : "Could not load dishes." });
+      return [];
+    }
+  }, [user, activeMenu, toast, userSwipes, isLoadingSwipes]);
+
+  // Swipe on dish
   const swipeOnDish = useCallback(async (dish: Dish, isLiked: boolean): Promise<boolean> => {
     if (!user || !activeMenu) {
-      console.error("SwipeProvider: User or activeMenu missing for swipe.");
+      toast({ variant: "destructive", title: "Error", description: "Cannot swipe without user and active menu." });
       return false;
-    } 
+    }
+    const swipeStatus: SwipeStatus = isLiked ? 'like' : 'dislike';
+    const { uid } = user;
+    const { menu_id } = activeMenu;
+    const { dish_id, category } = dish;
+
+    console.log(`SwipeProvider: User ${uid} swiping ${swipeStatus} on dish ${dish_id} in menu ${menu_id}`);
+
     try {
-      await firestoreService.recordSwipe(user.uid, dish.dish_id, activeMenu.menu_id, isLiked);
-      setUserSwipes(prev => ({ ...prev, [dish.dish_id]: isLiked })); // Update local swipes
+      await swipeService.recordSwipe(uid, dish_id, menu_id, swipeStatus);
+      console.log(`SwipeProvider: Swipe recorded successfully via swipeService.`);
+
+      setUserSwipes(prev => ({ ...prev, [dish_id]: swipeStatus }));
 
       if (isLiked) {
-        const matchFound = await firestoreService.checkForMatch(activeMenu.menu_id, dish.dish_id, dish.category);
-        if (matchFound) {
-          toast({ title: "It's a Match!", description: `${dish.name} added to menu.` });
-          // Note: activeMenu update happens via listener in MenuProvider/SwipePageContent
+        console.log(`SwipeProvider: Liked dish ${dish_id}. Checking for match...`);
+        const matchResult = await swipeService.checkForMatch(menu_id, dish_id, category);
+        if (matchResult) {
+          console.log(`SwipeProvider: Match found for dish ${dish_id}!`);
+          toast({ title: "It's a Match!", description: `${dish.name} is a match!` });
+        } else {
+          console.log(`SwipeProvider: No match found yet for dish ${dish_id}.`);
         }
       }
       return true;
     } catch (error) {
       console.error("SwipeProvider: Error swiping on dish:", error);
-      toast({ variant: "destructive", title: "Swipe Error", description: "Failed to record swipe." });
+      toast({ variant: "destructive", title: "Swipe Error", description: "Could not record your swipe." });
       return false;
     }
-  }, [user, activeMenu, toast]); // Depends on user, activeMenu, toast
+  }, [user, activeMenu, toast, updateActiveMenu]);
 
-  // Remove dish from shortlist (depends on user, activeMenu)
+  // Remove dish from shortlist
   const removeDishFromShortlist = useCallback(async (dish: Dish, category: string): Promise<boolean> => {
     if (!user || !activeMenu) {
-        console.error("SwipeProvider: User or activeMenu missing for remove.");
-        return false; 
-    }
-    try {
-      const updatedMenu = { ...activeMenu };
-      const categoryKey = category.toLowerCase() as keyof MenuMatches;
-      if (!(categoryKey in updatedMenu.matches)) return false;
-      
-      const categoryMatchIDs = updatedMenu.matches[categoryKey];
-      const updatedMatchIDs = categoryMatchIDs.filter((id: string) => id !== dish.dish_id);
-      updatedMenu.matches[categoryKey] = updatedMatchIDs;
-      
-      // Update Firestore first
-      await firestoreService.updateMenu(updatedMenu); 
-      
-      // Now update the activeMenu state in MenuProvider
-      updateActiveMenu(updatedMenu); 
-      
-      toast({ title: "Dish Removed", description: `${dish.name} removed from ${category}.` });
-      return true;
-    } catch (error) {
-      console.error("SwipeProvider: Error removing dish:", error);
-      toast({ title: "Error", description: "Could not remove dish.", variant: "destructive" });
+        toast({ variant: "destructive", title: "Error", description: "Cannot modify shortlist without user and active menu." });
       return false;
     }
-  }, [user, activeMenu, toast, updateActiveMenu]); // Depends on user, activeMenu, toast, updateActiveMenu
+
+    console.log(`SwipeProvider: Removing dish ${dish.dish_id} from category ${category} shortlist.`);
+
+    try {
+      const updatedMenu = JSON.parse(JSON.stringify(activeMenu));
+      
+      const categoryKey = category.toLowerCase() as keyof MenuMatches;
+      
+      if (!updatedMenu.matches || !Array.isArray(updatedMenu.matches[categoryKey])) { 
+          console.warn(`SwipeProvider: Category ${categoryKey} not found or not an array in matches.`);
+          return false;
+      }
+
+      const categoryMatchIDs: string[] = updatedMenu.matches[categoryKey];
+      const initialLength = categoryMatchIDs.length;
+      
+      updatedMenu.matches[categoryKey] = categoryMatchIDs.filter((id: string) => id !== dish.dish_id);
+
+      if (updatedMenu.matches[categoryKey].length < initialLength) {
+        console.log(`SwipeProvider: Dish ${dish.dish_id} removed from local ${categoryKey} matches.`);
+        updateActiveMenu(updatedMenu);
+        toast({ title: "Dish Removed", description: `${dish.name} removed from shortlist.` });
+        return true;
+      } else {
+        console.warn(`SwipeProvider: Dish ${dish.dish_id} not found in ${categoryKey} shortlist.`);
+        return false;
+      }
+      
+    } catch (error) {
+      console.error("SwipeProvider: Error removing dish from shortlist:", error);
+      toast({ variant: "destructive", title: "Error Removing Dish", description: "Could not remove dish from shortlist." });
+      return false;
+    }
+  }, [user, activeMenu, toast, updateActiveMenu]);
 
   // Define the context value
   const contextValue: SwipeContextType = {
     userSwipes,
+    isLoadingSwipes,
     fetchDishesToSwipe,
     swipeOnDish,
     removeDishFromShortlist,

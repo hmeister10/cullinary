@@ -2,11 +2,12 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { firestoreService } from "@/lib/firestore-service";
-import { isFirebasePermissionError } from "@/lib/firebase";
+import { useUser } from "@/providers/user-provider";
+import { menuService } from "@/lib/services/menu-service";
+import { userService } from "@/lib/services/user-service";
 import { type Menu, type MenuMatches } from "@/lib/types/menu-types";
 import type { Unsubscribe } from "firebase/firestore";
-import { useUser } from "@/providers/user-provider"; // Import the useUser hook
+import { isFirebasePermissionError } from "@/lib/firebase";
 
 // Define the context type for Menu related state and functions
 interface MenuContextType {
@@ -20,8 +21,6 @@ interface MenuContextType {
   deleteMenu: (menuId: string) => Promise<boolean>;
   subscribeToMenuUpdates: (menuId: string, callback: (menu: Menu | null) => void) => Unsubscribe;
   getMenuParticipants: (menuId: string) => Promise<string[]>;
-  getUserNameById: (userId: string) => Promise<string | null>;
-  getUserNamesByIds: (userIds: string[]) => Promise<Map<string, string | null>>;
   fetchUserMenus: () => Promise<void>; // Add function to fetch menus
 }
 
@@ -42,7 +41,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     console.log("MenuProvider: Fetching user menus...");
     setIsLoadingUserMenus(true);
     try {
-      const menus = await firestoreService.getUserMenus(user.uid);
+      const menus = await menuService.getUserMenus(user.uid);
       setUserMenuList(menus);
     } catch (error) {
       console.error("MenuProvider: Error fetching user menus:", error);
@@ -80,9 +79,9 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     } 
     try {
       console.log(`MenuProvider: Loading menu with ID: ${menuId}`);
-      const firestoreMenu = await firestoreService.getMenu(menuId);
-      if (firestoreMenu) {
-        setActiveMenu(firestoreMenu);
+      const menu = await menuService.getMenu(menuId);
+      if (menu) {
+        setActiveMenu(menu);
         console.log(`MenuProvider: Menu ${menuId} set as active.`);
         return true;
       }
@@ -102,24 +101,30 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log(`MenuProvider: Creating new menu for user: ${user.uid}`);
-      const menuId = await firestoreService.createMenu(startDate.toISOString(), endDate.toISOString(), user.uid, user.name);
+      const menuId = await menuService.createMenu(startDate.toISOString(), endDate.toISOString(), user.uid, user.name);
       console.log(`MenuProvider: Menu created in Firestore with ID: ${menuId}`);
 
-      const firestoreMenu = await firestoreService.getMenu(menuId);
-      if (!firestoreMenu) {
+      const menu = await menuService.getMenu(menuId);
+      if (!menu) {
         console.warn(`MenuProvider: Could not retrieve menu ${menuId} after creation`);
         toast({ variant: "default", title: "Warning", description: "Created menu but failed to load data. Refresh might be needed." });
       } else {
-        setActiveMenu(firestoreMenu);
+        setActiveMenu(menu);
         // Remove call to saveMenuToStorage
-        // saveMenuToStorage(firestoreMenu); 
+        // saveMenuToStorage(menu); 
       }
+
+      // Use userService to add menu to user list
+      await userService.addMenuToUser(user.uid, menuId, user.name);
+
+      // Refresh user menu list state
+      fetchUserMenus();
       return menuId;
     } catch (error) {
       // ... error handling ...
       throw error;
     }
-  }, [user, toast]);
+  }, [user, toast, fetchUserMenus]);
 
   // Join an existing menu
   const joinMenu = useCallback(async (menuId: string): Promise<boolean> => {
@@ -128,14 +133,14 @@ export function MenuProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log(`MenuProvider: User ${user.uid} attempting to join menu ${normalizedMenuId}`);
-      const menuExists = await firestoreService.menuExists(normalizedMenuId);
+      const menuExists = await menuService.menuExists(normalizedMenuId);
       if (!menuExists) {
         console.log(`MenuProvider: Menu ${normalizedMenuId} not found`);
         toast({ variant: "destructive", title: "Error", description: "Menu not found." });
         return false;
       }
 
-      const firestoreSuccess = await firestoreService.joinMenu(normalizedMenuId, user.uid, user.name);
+      const firestoreSuccess = await menuService.joinMenu(normalizedMenuId, user.uid);
       if (!firestoreSuccess) {
         console.log(`MenuProvider: Failed to join Firestore menu ${normalizedMenuId}`);
         toast({ variant: "destructive", title: "Error", description: "Failed to join menu." });
@@ -143,7 +148,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       }
 
       console.log(`MenuProvider: Successfully joined Firestore menu: ${normalizedMenuId}`);
-      const firestoreMenu = await firestoreService.getMenu(normalizedMenuId);
+      const firestoreMenu = await menuService.getMenu(normalizedMenuId);
       if (!firestoreMenu) {
         console.warn(`MenuProvider: Could not retrieve menu ${normalizedMenuId} after joining`);
         toast({ variant: "default", title: "Warning", description: "Joined menu but failed to load data. Refresh might be needed." });
@@ -153,12 +158,18 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       // Remove call to saveMenuToStorage
       // saveMenuToStorage(firestoreMenu);
       setActiveMenu(firestoreMenu);
+
+      // Use userService to add menu to user list
+      await userService.addMenuToUser(user.uid, normalizedMenuId, user.name);
+
+      // Refresh user menu list state
+      fetchUserMenus();
       return true;
     } catch (error) {
       // ... error handling ...
       return false;
     }
-  }, [user, toast]);
+  }, [user, toast, fetchUserMenus]);
 
   // Delete a menu
   const deleteMenu = useCallback(async (menuId: string): Promise<boolean> => {
@@ -168,27 +179,25 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      console.log(`MenuProvider: Attempting delete for menu ${menuId} by user ${user.uid}`);
-      const menuToDelete = await firestoreService.getMenu(menuId);
+      console.log(`MenuProvider: Deleting menu ${menuId} by user ${user.uid}`);
+      const menuToDelete = await menuService.getMenu(menuId);
 
       if (!menuToDelete) {
         toast({ variant: "destructive", title: "Error", description: "Menu not found." });
         return false;
       }
 
-      // Check if the current user is the creator
       if (menuToDelete.createdBy === user.uid) {
-        console.log(`MenuProvider: User ${user.uid} is the creator. Deleting document ${menuId}...`);
-        await firestoreService.deleteMenuDocument(menuId);
+        // Delete the menu document
+        await menuService.deleteMenuDocument(menuId);
         
-        // Update local state: remove from activeMenu if it matches
-        if (activeMenu?.menu_id === menuId) {
-          setActiveMenu(null);
-        }
-        // Update userMenuList state
-        setUserMenuList(prev => prev.filter(menu => menu.menu_id !== menuId));
+        // Remove the menu from the user's list in their document
+        await userService.removeMenuFromUserList(user.uid, menuId);
         
-        toast({ title: "Menu Deleted", description: "The menu has been permanently deleted." });
+        // Update local state
+        if (activeMenu?.menu_id === menuId) setActiveMenu(null);
+        fetchUserMenus(); // Refresh the displayed list
+        toast({ title: "Menu Deleted" });
         return true;
       } else {
         // User is not the creator - show error
@@ -201,30 +210,18 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       toast({ variant: "destructive", title: "Error", description: "Failed to delete menu. Please try again." });
       return false;
     }
-  }, [user, activeMenu, toast]); // Removed fetchUserMenus from deps, rely on state update
+  }, [user, activeMenu, toast, fetchUserMenus]); // Keep dependencies
 
   // Subscribe to menu updates
   const subscribeToMenuUpdates = useCallback((menuId: string, callback: (menu: Menu | null) => void): Unsubscribe => {
-    // This doesn't directly depend on user state, just passes through to firestoreService
-    return firestoreService.subscribeToMenuUpdates(menuId, callback);
+    // This doesn't directly depend on user state, just passes through to menuService
+    return menuService.subscribeToMenuUpdates(menuId, callback);
   }, []); // No dependencies needed
 
   // Get menu participants
   const getMenuParticipants = useCallback(async (menuId: string): Promise<string[]> => {
-    // Doesn't depend on local state
-    return firestoreService.getMenuParticipants(menuId);
-  }, []); // No dependencies needed
-
-  // Get user name by ID
-  const getUserNameById = useCallback(async (userId: string): Promise<string | null> => {
-     // Doesn't depend on local state
-    return firestoreService.getUserNameById(userId);
-  }, []); // No dependencies needed
-
-  // Get user names by IDs
-  const getUserNamesByIds = useCallback(async (userIds: string[]): Promise<Map<string, string | null>> => {
-     // Doesn't depend on local state
-    return firestoreService.getUserNamesByIds(userIds);
+    // Use menuService
+    return menuService.getMenuParticipants(menuId);
   }, []); // No dependencies needed
 
   // Define the context value
@@ -239,8 +236,6 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     deleteMenu,
     subscribeToMenuUpdates,
     getMenuParticipants,
-    getUserNameById,
-    getUserNamesByIds,
     fetchUserMenus,
   };
 
