@@ -34,10 +34,9 @@ export const DishSwipeSection = ({
 
   const loadDishes = useCallback(async (isRefresh = false) => {
     if (apiCallInProgressRef.current && !isRefresh) {
-      console.log("DishSwipeSection: Load call already in progress, skipping.");
       return;
     }
-    console.log(`DishSwipeSection: Triggering loadDishes for ${mealTime}. Refresh: ${isRefresh}`);
+    console.log(`DishSwipeSection: Loading dishes for ${mealTime}. Refresh: ${isRefresh}`);
     apiCallInProgressRef.current = true;
     setIsLoading(true);
     
@@ -52,12 +51,13 @@ export const DishSwipeSection = ({
 
       newFilteredDishes.forEach(dish => previouslyLoadedDishIdsRef.current.add(dish.dish_id));
 
-      console.log(`DishSwipeSection: fetchDishesToSwipe returned ${dishes.length} dishes. ${newFilteredDishes.length} are new to this view.`);
+      console.log(`DishSwipeSection: Displaying ${newFilteredDishes.length} new dishes for ${mealTime}.`);
       
+      console.log(`DishSwipeSection: Setting currentDishes to array of length ${newFilteredDishes.length}`);
       setCurrentDishes(newFilteredDishes);
 
     } catch (error) {
-      console.error("DishSwipeSection: Error in loadDishes calling fetchDishesToSwipe:", error);
+      console.error("DishSwipeSection: Error loading dishes:", error);
       toast({ variant: "destructive", title: "Error", description: "Failed to load dishes." });
       setCurrentDishes([]);
     } finally {
@@ -72,20 +72,14 @@ export const DishSwipeSection = ({
 
   useEffect(() => {
     if (menu) {
-      console.log(`DishSwipeSection: useEffect for initial load/mealTime change: ${mealTime}`);
       loadDishes(true);
     }
-  }, [mealTime, loadDishes]);
+  }, [mealTime, menu, loadDishes]);
 
   const handleSwipe = useCallback(async (dish: Dish, direction: string) => {
     const isLiked = direction === "right";
     
-    console.log(`%cDishSwipeSection: handleSwipe Triggered%c
-    Dish ID: ${dish.dish_id}
-    Dish Name: ${dish.name}
-    Direction: ${direction}
-    isLiked: ${isLiked}`, 
-    "color: blue; font-weight: bold;", "color: initial;");
+    console.log(`DishSwipeSection: Swiped ${direction} on ${dish.name} (${dish.dish_id})`);
 
     setCurrentDishes(prev => prev.filter((d) => d.dish_id !== dish.dish_id));
     
@@ -99,9 +93,7 @@ export const DishSwipeSection = ({
 
       previouslyLoadedDishIdsRef.current.add(dish.dish_id);
 
-      console.log(`DishSwipeSection: Calling swipeOnDish provider function with isLiked=${isLiked}`);
       const success = await swipeOnDish(dish, isLiked);
-      console.log(`DishSwipeSection: swipeOnDish provider function returned: ${success}`);
 
     } catch (error) {
       console.error("DishSwipeSection: Error processing swipe:", error)
@@ -124,7 +116,7 @@ export const DishSwipeSection = ({
   return (
     <div className="relative">
       <TabsContent value={mealTime} className="h-[550px] relative flex flex-col">
-        {isLoading && currentDishes.length === 0 ? (
+        {(isLoading || !menu) && currentDishes.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -148,7 +140,7 @@ export const DishSwipeSection = ({
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="flex-1 flex flex-col items-center justify-center h-full">
             <DishStack 
               key={mealTime}
               dishes={currentDishes}

@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card"
 import type { Dish } from "@/lib/types/dish-types"
-import { memo, useEffect } from "react"
+import { memo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Clock, Flame } from "lucide-react"
 import { motion } from "framer-motion"
@@ -30,12 +30,6 @@ const itemVariants = {
 
 // Use memo to prevent unnecessary re-renders
 const DishCard = memo(({ dish }: DishCardProps) => {
-  // Debug logging
-  useEffect(() => {
-    console.log("DishCard rendering with dish:", dish.name);
-    console.log("Image URL:", dish.image_url);
-  }, [dish]);
-  
   // Ensure we have a valid image URL
   const imageUrl = dish.image_url && dish.image_url.trim() !== "" 
     ? dish.image_url 

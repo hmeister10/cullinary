@@ -13,7 +13,7 @@ import { type UserSwipes, type SwipeStatus } from "@/lib/types/swipe-types";
 interface SwipeContextType {
   userSwipes: UserSwipes;
   isLoadingSwipes: boolean;
-  fetchDishesToSwipe: (category: string) => Promise<Dish[]>;
+  fetchDishesToSwipe: (category: string, isRefresh?: boolean) => Promise<Dish[]>;
   swipeOnDish: (dish: Dish, isLiked: boolean) => Promise<boolean>;
   removeDishFromShortlist: (dish: Dish, category: string) => Promise<boolean>;
 }
@@ -55,7 +55,7 @@ export function SwipeProvider({ children }: { children: ReactNode }) {
   }, [user, activeMenu, toast]);
 
   // Fetch dishes for swiping
-  const fetchDishesToSwipe = useCallback(async (category: string): Promise<Dish[]> => {
+  const fetchDishesToSwipe = useCallback(async (category: string, isRefresh = false): Promise<Dish[]> => {
     if (!user) {
       toast({ variant: "destructive", title: "Error", description: "User not authenticated." });
       return [];
@@ -70,11 +70,9 @@ export function SwipeProvider({ children }: { children: ReactNode }) {
     }
 
     const currentSwipes = userSwipes;
-    console.log(`SwipeProvider: Fetching dishes for category '${category}'. Using ${Object.keys(currentSwipes).length} swipes from state to filter.`);
 
     try {
       const apiUrl = `/api/dishes?category=${encodeURIComponent(category)}&limit=100`;
-      console.log("SwipeProvider: Fetching dishes from API URL:", apiUrl);
       const response = await fetch(apiUrl);
 
       if (!response.ok) {
@@ -90,10 +88,12 @@ export function SwipeProvider({ children }: { children: ReactNode }) {
         console.error("SwipeProvider: Invalid response format from dishes API", data);
         throw new Error("Invalid response format from dishes API.");
       }
-      console.log(`SwipeProvider: Received ${allDishesForCategory.length} dishes for category '${category}' from API.`);
+      console.log(`SwipeProvider: Received ${allDishesForCategory.length} dishes for '${category}' from API.`);
 
       let filteredDishes = allDishesForCategory.filter(dish => !currentSwipes.hasOwnProperty(dish.dish_id));
-      console.log(`SwipeProvider: Dishes after swipe filter: ${filteredDishes.length}`);
+      if (filteredDishes.length < allDishesForCategory.length) {
+          console.log(`SwipeProvider: ${allDishesForCategory.length - filteredDishes.length} dishes removed based on past swipes.`);
+      }
 
       const prefs = user?.dietaryPreferences;
       if (prefs) {
@@ -116,13 +116,14 @@ export function SwipeProvider({ children }: { children: ReactNode }) {
         }
 
         if (filteredDishes.length < originalCount) {
-          console.log(`SwipeProvider: Dishes after preference filter: ${filteredDishes.length}`);
+          console.log(`SwipeProvider: ${originalCount - filteredDishes.length} additional dishes removed based on user preferences.`);
         }
       }
 
+      console.log(`SwipeProvider: Returning ${filteredDishes.length} dishes after filtering.`);
       return filteredDishes;
     } catch (error) {
-      console.error("SwipeProvider: Error fetching dishes to swipe:", error);
+      console.error("SwipeProvider: Error fetching dishes:", error);
       toast({ variant: "destructive", title: "Error Fetching Dishes", description: error instanceof Error ? error.message : "Could not load dishes." });
       return [];
     }
@@ -139,27 +140,22 @@ export function SwipeProvider({ children }: { children: ReactNode }) {
     const { menu_id } = activeMenu;
     const { dish_id, category } = dish;
 
-    console.log(`SwipeProvider: User ${uid} swiping ${swipeStatus} on dish ${dish_id} in menu ${menu_id}`);
-
     try {
       await swipeService.recordSwipe(uid, dish_id, menu_id, swipeStatus);
-      console.log(`SwipeProvider: Swipe recorded successfully via swipeService.`);
+      console.log(`SwipeProvider: Swipe ${swipeStatus} recorded for ${dish_id}.`);
 
       setUserSwipes(prev => ({ ...prev, [dish_id]: swipeStatus }));
 
       if (isLiked) {
-        console.log(`SwipeProvider: Liked dish ${dish_id}. Checking for match...`);
         const matchResult = await swipeService.checkForMatch(menu_id, dish_id, category);
         if (matchResult) {
           console.log(`SwipeProvider: Match found for dish ${dish_id}!`);
           toast({ title: "It's a Match!", description: `${dish.name} is a match!` });
-        } else {
-          console.log(`SwipeProvider: No match found yet for dish ${dish_id}.`);
         }
       }
       return true;
     } catch (error) {
-      console.error("SwipeProvider: Error swiping on dish:", error);
+      console.error("SwipeProvider: Error recording swipe:", error);
       toast({ variant: "destructive", title: "Swipe Error", description: "Could not record your swipe." });
       return false;
     }

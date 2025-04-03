@@ -6,13 +6,7 @@ import DishCard from "./DishCard"
 import { memo, useState } from "react"
 import { motion, useAnimation, PanInfo, AnimatePresence } from "framer-motion"
 import { ThumbsUp, ThumbsDown, RefreshCw } from "lucide-react"
-
-interface UserPreferences {
-  diet: string;
-  cuisine: string;
-  spice: string;
-  // Add other user preferences as needed
-}
+import type { DietaryPreferences } from "@/lib/types/user-types"
 
 interface DishStackProps {
   dishes: Dish[];
@@ -21,7 +15,7 @@ interface DishStackProps {
   onRefresh: () => void;
   showLikeAnimation: boolean;
   lastLikedDish: Dish | null;
-  userPreferences?: UserPreferences;
+  userPreferences?: DietaryPreferences;
   swipedDishIds?: string[];
 }
 
