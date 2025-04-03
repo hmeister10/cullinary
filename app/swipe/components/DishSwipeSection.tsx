@@ -29,51 +29,83 @@ export const DishSwipeSection = ({
   const apiCallInProgressRef = useRef<boolean>(false)
   const previouslyLoadedDishIdsRef = useRef<Set<string>>(new Set())
   const likeAnimationTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isActiveRequestRef = useRef(false)
   const { toast } = useToast()
   const router = useRouter()
 
   const loadDishes = useCallback(async (isRefresh = false) => {
+    if (!isActiveRequestRef.current) {
+        console.log(`DishSwipeSection: Aborting stale loadDishes call for ${mealTime} (start)`);
+        return;
+    }
+
     if (apiCallInProgressRef.current && !isRefresh) {
+      console.log(`DishSwipeSection: API call already in progress for active request, skipping duplicate for ${mealTime}.`);
       return;
     }
-    console.log(`DishSwipeSection: Loading dishes for ${mealTime}. Refresh: ${isRefresh}`);
+    console.log(`DishSwipeSection: Loading dishes for ${mealTime}. Refresh: ${isRefresh}. Active: ${isActiveRequestRef.current}`);
     apiCallInProgressRef.current = true;
     setIsLoading(true);
     
-    if (isRefresh) {
-      previouslyLoadedDishIdsRef.current = new Set();
-    }
-
     try {
       const dishes = await fetchDishesToSwipe(mealTime);
       
+      if (!isActiveRequestRef.current) {
+          console.log(`DishSwipeSection: Aborting stale loadDishes call for ${mealTime} (before filter)`);
+          return; 
+      }
+
+      if (isRefresh) {
+          console.log(`DishSwipeSection: Active refresh request for ${mealTime}. Clearing previously loaded IDs.`);
+          previouslyLoadedDishIdsRef.current = new Set();
+      }
+      
+      console.log(`DishSwipeSection: Filtering ${dishes.length} fetched dishes against ${previouslyLoadedDishIdsRef.current.size} previously loaded IDs.`);
       const newFilteredDishes = dishes.filter(dish => !previouslyLoadedDishIdsRef.current.has(dish.dish_id));
 
       newFilteredDishes.forEach(dish => previouslyLoadedDishIdsRef.current.add(dish.dish_id));
 
       console.log(`DishSwipeSection: Displaying ${newFilteredDishes.length} new dishes for ${mealTime}.`);
       
-      console.log(`DishSwipeSection: Setting currentDishes to array of length ${newFilteredDishes.length}`);
-      setCurrentDishes(newFilteredDishes);
+      if (isActiveRequestRef.current) {
+          console.log(`DishSwipeSection: Request still active. Setting currentDishes to array of length ${newFilteredDishes.length}`);
+          setCurrentDishes(newFilteredDishes);
+      } else {
+          console.log(`DishSwipeSection: Request became stale during fetch/filter for ${mealTime}. Discarding results.`);
+      }
 
     } catch (error) {
-      console.error("DishSwipeSection: Error loading dishes:", error);
-      toast({ variant: "destructive", title: "Error", description: "Failed to load dishes." });
-      setCurrentDishes([]);
+      if (isActiveRequestRef.current) {
+        console.error("DishSwipeSection: Error loading dishes:", error);
+        toast({ variant: "destructive", title: "Error", description: "Failed to load dishes." });
+        setCurrentDishes([]);
+      }
     } finally {
-      setIsLoading(false);
-      apiCallInProgressRef.current = false;
+       if (isActiveRequestRef.current) {
+            setIsLoading(false);
+            apiCallInProgressRef.current = false;
+       }
     }
   }, [mealTime, fetchDishesToSwipe, toast]);
 
   const handleRefresh = useCallback(() => {
+    isActiveRequestRef.current = true; 
     loadDishes(true);
   }, [loadDishes]);
 
   useEffect(() => {
+    isActiveRequestRef.current = true;
+    let currentMealTime = mealTime;
+
     if (menu) {
-      loadDishes(true);
+      console.log(`DishSwipeSection: useEffect triggered for ${currentMealTime}. Starting load...`);
+      loadDishes(true); 
     }
+
+    return () => {
+      console.log(`DishSwipeSection: useEffect cleanup for ${currentMealTime}. Marking request as inactive.`);
+      isActiveRequestRef.current = false;
+    };
   }, [mealTime, menu, loadDishes]);
 
   const handleSwipe = useCallback(async (dish: Dish, direction: string) => {
@@ -140,7 +172,7 @@ export const DishSwipeSection = ({
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center h-full">
+          <div className="flex-1 flex flex-col justify-center h-full">
             <DishStack 
               key={mealTime}
               dishes={currentDishes}

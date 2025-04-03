@@ -134,15 +134,14 @@ const DishStack = memo(({
   return (
     <div className="relative h-full flex flex-col">
       {/* Card stack with animations */}
-      <div className="flex-1 mb-4 relative">
+      <div className="flex-1 mb-4 relative flex items-center justify-center">
         <AnimatePresence>
           {dishes.slice(0, 3).map((dish, index) => (
             <motion.div
               key={dish.dish_id}
-              className="absolute w-full"
+              className="absolute w-full max-w-sm h-[480px] mx-auto"
               style={{
                 zIndex: dishes.length - index,
-                top: index === 0 ? 0 : `${index * 8}px`,
                 opacity: index === 0 ? 1 : 0.4 - (index * 0.1),
                 scale: 1 - (index * 0.05),
                 boxShadow: index === 0 ? "0 8px 16px rgba(0, 0, 0, 0.15)" : "0 4px 8px rgba(0, 0, 0, 0.1)",
