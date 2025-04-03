@@ -159,6 +159,35 @@ export default function MenuPage() {
 
   }, [activeMenu, toast]); // Run when activeMenu (with IDs) changes
 
+  useEffect(() => {
+    // Skip if no menu is loaded yet
+    if (!activeMenu) return
+    
+    const loadDishDetails = async () => {
+      const dishService = DishService.getInstance()
+      const allDishIds = [
+        ...activeMenu.matches.breakfast,
+        ...activeMenu.matches.lunch, 
+        ...activeMenu.matches.dinner,
+        ...activeMenu.matches.snack
+      ].filter(Boolean)
+      
+      const dishMap: Record<string, Dish> = {}
+      
+      // Load each dish by ID
+      await Promise.all(allDishIds.map(async (dishId) => {
+        const dish = await dishService.getDishById(dishId)
+        if (dish) {
+          dishMap[dishId] = dish
+        }
+      }))
+      
+      setMenuDishes(dishMap)
+    }
+    
+    loadDishDetails()
+  }, [activeMenu])
+
   const shareMenu = () => {
     toast({
       title: "Share Feature",

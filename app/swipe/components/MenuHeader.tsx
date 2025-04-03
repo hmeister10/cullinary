@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Share2, Users, MoreHorizontal, Home } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { type Menu } from "@/lib/mock-data"
+import { type Menu } from "@/lib/types/menu-types"
 import { format, parseISO } from "date-fns"
 
 interface MenuHeaderProps {

@@ -5,17 +5,55 @@ import { useToast } from "@/hooks/use-toast"
 import { useUser } from "@/providers/user-provider"
 import { useMenu } from "@/providers/menu-provider"
 import { useRouter, useSearchParams } from "next/navigation"
-import type { Dish } from "@/lib/types/dish-types"
 import { UserNameForm } from "@/components/user-name-form"
 import { Tabs } from "@/components/ui/tabs"
 import { MenuHeader } from "./components/MenuHeader"
 import { MealTimeTabs } from "@/app/swipe/components/MealTimeTabs"
 import { DishSwipeSection } from "@/app/swipe/components/DishSwipeSection"
 import { type Menu } from "@/lib/types/menu-types"
+import { motion } from "framer-motion"
 
 interface SwipePageContentProps {
   menuIdFromUrl?: string;
 }
+
+const pageVariants = {
+  initial: {
+    opacity: 0,
+    y: 20
+  },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: "easeInOut"
+    }
+  },
+  exit: {
+    opacity: 0,
+    y: -20,
+    transition: {
+      duration: 0.3
+    }
+  }
+};
+
+const contentVariants = {
+  initial: {
+    opacity: 0,
+    scale: 0.98
+  },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      duration: 0.4,
+      ease: "easeOut",
+      delay: 0.2
+    }
+  }
+};
 
 const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
   const { user, hasSetName } = useUser()
@@ -147,29 +185,73 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
 
   if (!hasSetName) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <motion.div 
+        className="flex items-center justify-center min-h-screen"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+      >
         <UserNameForm onComplete={() => {}} />
-      </div>
+      </motion.div>
     )
   }
 
   if (isLoadingMenu) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <motion.div 
+        className="flex items-center justify-center min-h-screen"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+      >
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <motion.div 
+            className="rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"
+            animate={{ rotate: 360 }}
+            transition={{
+              duration: 1,
+              ease: "linear",
+              repeat: Infinity
+            }}
+          />
           <p>Loading menu...</p>
         </div>
-      </div>
+      </motion.div>
+    );
+  }
+
+  if (!activeMenu) {
+    return (
+      <motion.div 
+        className="flex items-center justify-center min-h-screen"
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={pageVariants}
+      >
+        <div className="text-center">
+          <p>No menu found. Please return to the home page.</p>
+          <motion.button 
+            className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
+            onClick={() => router.push("/")}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Return Home
+          </motion.button>
+        </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="container flex flex-col items-center min-h-screen py-6 px-4">
+    <motion.div className="container flex flex-col items-center min-h-screen py-6 px-4">
       {/* Pass local state to MenuHeader */}
       <MenuHeader menu={currentDisplayMenu} />
       
-      <div className="w-full max-w-md mx-auto">
+      <motion.div className="w-full max-w-md mx-auto">
         <Tabs value={currentMealTime} onValueChange={handleMealTimeChange} className="w-full">
           {/* Meal Time Tabs - Breakfast, Lunch, Dinner, Snack */}
           <MealTimeTabs 
@@ -183,8 +265,8 @@ const SwipePageContent = ({ menuIdFromUrl }: SwipePageContentProps) => {
             menu={currentDisplayMenu}
           />
         </Tabs>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }
 

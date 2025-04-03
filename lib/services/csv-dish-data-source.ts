@@ -1,5 +1,5 @@
 import { Dish, MealCategory, DietPreference, CuisineType, SpiceLevel } from "@/lib/types/dish-types";
-import { readCsvFile } from "@/lib/utils/csv-parser";
+import { readCsvFile } from "@/lib/utils/csv-parser.server";
 import fs from 'fs';
 import { parse } from 'csv-parse/sync';
 

@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 // Define the dietary preferences interface
 interface DietaryPreferences {
   isVegetarian: boolean;
+  isVegan: boolean;
   dietType: string;
   region: string;
   healthTags: string[];
@@ -38,6 +39,7 @@ export function DetailedProfile({ initialPreferences, onSave, isSaving, initialN
   const [name, setName] = useState(initialName)
   const [preferences, setPreferences] = useState<DietaryPreferences>({
     isVegetarian: initialPreferences.isVegetarian || false,
+    isVegan: initialPreferences.isVegan || false,
     dietType: initialPreferences.dietType || "",
     region: initialPreferences.region || "",
     healthTags: initialPreferences.healthTags || [],

@@ -37,12 +37,6 @@ export default function SwipeWithMenuPage() {
   useEffect(() => {
     // Wait for user to be initialized before attempting to load menu
     if (loading) return;
-    
-    // If user hasn't set name, redirect to home
-    if (!hasSetName) {
-      router.push("/");
-      return;
-    }
 
     const loadMenuData = async () => {
       // Prevent multiple load attempts
@@ -55,36 +49,6 @@ export default function SwipeWithMenuPage() {
       try {
         // Get the menu ID from the URL
         const menuId = params.id as string
-        
-        if (!menuId) {
-          setLoadError("No menu ID provided.")
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "No menu ID provided.",
-          })
-          return
-        }
-        
-        console.log("Attempting to load menu with ID:", menuId)
-        
-        // Check if we already have this menu loaded
-        if (activeMenu && activeMenu.menu_id === menuId) {
-          console.log("Menu already loaded:", menuId);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Ensure user is available before loading menu
-        if (!user) {
-          setLoadError("User not authenticated. Please refresh and try again.");
-          toast({
-            variant: "destructive",
-            title: "Error",
-            description: "User not authenticated. Please refresh and try again.",
-          });
-          return;
-        }
         
         // Load the menu
         const success = await loadMenu(menuId)
@@ -102,12 +66,6 @@ export default function SwipeWithMenuPage() {
         console.log("Successfully loaded menu:", menuId)
       } catch (error) {
         console.error("Error loading menu:", error)
-        setLoadError("An unexpected error occurred while loading the menu.")
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "An unexpected error occurred while loading the menu.",
-        })
       } finally {
         setIsLoading(false)
       }
@@ -115,7 +73,7 @@ export default function SwipeWithMenuPage() {
     
     loadMenuData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, hasSetName]) // Add loading and hasSetName as dependencies
+  }, [loading]) // Add loading and hasSetName as dependencies
 
   const goHome = () => {
     router.push("/")

@@ -50,6 +50,7 @@ export default function HomePage() {
     // Map quick setup preferences to our format
     const mappedPreferences = {
       isVegetarian: ["pure-veg", "egg-veg", "vegan", "jain", "sattvic"].includes(quickPreferences.dietType),
+      isVegan: quickPreferences.dietType === "vegan",
       dietType: quickPreferences.dietType,
       region: quickPreferences.region,
       healthTags: quickPreferences.healthTags,
