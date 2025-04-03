@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
 import Link from "next/link"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { Calendar, Clock, Trash2, Utensils, ListChecks, PlusCircle, FilePlus2, Link as LinkIcon, FolderSearch, Users, Heart, Info } from "lucide-react"
 import { useUser } from "@/providers/user-provider"
 import { useMenu } from "@/providers/menu-provider"
@@ -284,7 +284,19 @@ export default function HomePage() {
               {userMenuList.map((menu, index) => {
                 const menuId = menu.menu_id;
                 const uniqueKey = menuId ?? `menu-index-${index}`; 
-                console.log(`Rendering menu card. Key: ${uniqueKey}, menuId: ${menuId} (Type: ${typeof menuId}), Name: ${menu.name}`);
+
+                // Format dates for display
+                let dateRangeString = "Dates not available";
+                if (menu.start_date && menu.end_date) {
+                  try {
+                    const startDate = parseISO(menu.start_date);
+                    const endDate = parseISO(menu.end_date);
+                    dateRangeString = `${format(startDate, "PP")} - ${format(endDate, "PP")}`;
+                  } catch (e) {
+                    console.error("Error parsing menu dates:", e);
+                    // Keep default string
+                  }
+                }
 
                 return (
                   <Card key={uniqueKey} className="overflow-hidden transition-shadow hover:shadow-md">
@@ -294,10 +306,13 @@ export default function HomePage() {
                           <CardTitle className="text-lg flex justify-between items-center">
                             <span>{menu.name || `Menu ${menuId?.substring(0, 6) || ''}`}</span>
                           </CardTitle>
-                          <CardDescription className="text-xs pt-1">
-                            Created: {menu.createdAt && typeof menu.createdAt === 'object' && 'seconds' in menu.createdAt ? 
-                                      format(new Date(menu.createdAt.seconds * 1000), "PP") : 
-                                      "Unknown date"}
+                          <CardDescription className="text-xs pt-1 space-y-0.5">
+                             <div>{dateRangeString}</div> 
+                             <div className="text-muted-foreground/80">
+                                Created: {menu.createdAt && typeof menu.createdAt === 'object' && 'seconds' in menu.createdAt ? 
+                                          format(new Date(menu.createdAt.seconds * 1000), "PP") : 
+                                          "Unknown"}
+                             </div>
                           </CardDescription>
                         </CardHeader>
                       </Link>
@@ -306,10 +321,13 @@ export default function HomePage() {
                           <CardTitle className="text-lg flex justify-between items-center text-muted-foreground">
                             <span>{menu.name || 'Menu (ID missing)'}</span>
                           </CardTitle>
-                          <CardDescription className="text-xs pt-1">
-                             Created: {menu.createdAt && typeof menu.createdAt === 'object' && 'seconds' in menu.createdAt ? 
-                                       format(new Date(menu.createdAt.seconds * 1000), "PP") : 
-                                       "Unknown date"}
+                          <CardDescription className="text-xs pt-1 space-y-0.5">
+                             <div>{dateRangeString}</div>
+                             <div className="text-muted-foreground/80">
+                               Created: {menu.createdAt && typeof menu.createdAt === 'object' && 'seconds' in menu.createdAt ? 
+                                         format(new Date(menu.createdAt.seconds * 1000), "PP") : 
+                                         "Unknown"}
+                             </div>
                           </CardDescription>
                         </CardHeader>
                     )}
