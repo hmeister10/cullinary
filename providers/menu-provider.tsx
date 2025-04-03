@@ -22,6 +22,7 @@ interface MenuContextType {
   subscribeToMenuUpdates: (menuId: string, callback: (menu: Menu | null) => void) => Unsubscribe;
   getMenuParticipants: (menuId: string) => Promise<string[]>;
   fetchUserMenus: () => Promise<void>; // Add function to fetch menus
+  getUserNamesByIds: (userIds: string[]) => Promise<Map<string, string | null>>;
 }
 
 // Create the context
@@ -224,6 +225,12 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     return menuService.getMenuParticipants(menuId);
   }, []); // No dependencies needed
 
+  // Get user names by IDs
+  const getUserNamesByIds = useCallback(async (userIds: string[]): Promise<Map<string, string | null>> => {
+    // Use userService
+    return userService.getUserNamesByIds(userIds);
+  }, []); // No dependencies needed
+
   // Define the context value
   const contextValue: MenuContextType = {
     activeMenu,
@@ -237,6 +244,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     subscribeToMenuUpdates,
     getMenuParticipants,
     fetchUserMenus,
+    getUserNamesByIds,
   };
 
   return <MenuContext.Provider value={contextValue}>{children}</MenuContext.Provider>;
