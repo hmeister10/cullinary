@@ -187,40 +187,16 @@ class MockDatabase {
     
     // If user preferences are provided, filter dishes based on preferences
     if (userPreferences) {
-      // Filter by vegetarian preference
-      if (userPreferences.isVegetarian) {
-        categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
-      }
-      
-      // Filter by diet type
-      if (userPreferences.dietType) {
-        switch (userPreferences.dietType) {
-          case "pure-veg":
-            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
-            break;
-          case "egg-veg":
-            // Allow egg dishes (which would be marked as Veg in our data)
-            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
-            break;
-          case "vegan":
-            // For simplicity, we'll just use Veg since we don't have vegan flag
-            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
-            break;
-          case "jain":
-            // For Jain, we'd need more detailed data, but for now just use Veg
-            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
-            break;
-          case "sattvic":
-            // For Sattvic, we'd need more detailed data, but for now just use Veg
-            categoryDishes = categoryDishes.filter(dish => dish.preference === "Veg");
-            break;
-          case "non-veg":
-            // Allow all dishes, no filtering needed
-            break;
-          case "flexible":
-            // Allow all dishes, no filtering needed
-            break;
-        }
+      const vegOnlyDietTypes = ["pure-veg", "egg-veg", "vegan", "jain", "sattvic"];
+      const requireVeg =
+        userPreferences.isVegetarian ||
+        vegOnlyDietTypes.includes(userPreferences.dietType ?? "");
+
+      // Filter vegetarian dishes if needed
+      if (requireVeg) {
+        categoryDishes = categoryDishes.filter(
+          (dish) => dish.preference === "Veg"
+        );
       }
       
       // Filter out dishes with avoided ingredients
