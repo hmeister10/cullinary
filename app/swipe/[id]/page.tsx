@@ -24,7 +24,7 @@ const Loading = () => (
 
 // Main page component
 export default function SwipeWithMenuPage() {
-  const { loadMenu, user, loading } = useApp()
+  const { loadMenu, loading } = useApp()
   const router = useRouter()
   const params = useParams()
   const { toast } = useToast()
